@@ -18,8 +18,8 @@ export interface FakeBackgroundClient extends BackgroundClient {
   setLoadSpecsError(err: Error | undefined): void;
   /** 테스트가 커밋한 현재 세션 상태를 세팅한다(`startRecording` 후 pull 모의용). */
   setSessionState(state: RecordingSessionState): void;
-  /** `getActiveTabId` 반환값 세팅. 기본 1. */
-  setActiveTabId(tabId: number): void;
+  /** `getActiveTab` 반환값 세팅. 기본 `{id: 1, url: "https://www.catchtable.co.kr/"}`. */
+  setActiveTab(tab: { id: number; url: string | undefined }): void;
   /** startRecording/stopRecording/authenticate 호출 로그. */
   readonly calls: {
     startRecording: Array<{ targetEventNames: string[]; tabId: number }>;
@@ -39,7 +39,11 @@ export function createFakeBackgroundClient(): FakeBackgroundClient {
     capturedCount: 0,
     targetEventNames: [],
   };
-  let activeTabId = 1;
+  // 기본값은 지원 호스트 — 기존 테스트(호스트 매치 이전 작성분)가 그대로 통과하도록.
+  let activeTab: { id: number; url: string | undefined } = {
+    id: 1,
+    url: "https://www.catchtable.co.kr/",
+  };
   const calls = {
     startRecording: [] as Array<{ targetEventNames: string[]; tabId: number }>,
     stopRecording: 0,
@@ -59,8 +63,8 @@ export function createFakeBackgroundClient(): FakeBackgroundClient {
     setSessionState(state) {
       sessionState = state;
     },
-    setActiveTabId(tabId) {
-      activeTabId = tabId;
+    setActiveTab(tab) {
+      activeTab = tab;
     },
     emit(state) {
       sessionState = state;
@@ -86,8 +90,8 @@ export function createFakeBackgroundClient(): FakeBackgroundClient {
     async generateReport() {
       calls.generateReport += 1;
     },
-    async getActiveTabId() {
-      return activeTabId;
+    async getActiveTab() {
+      return activeTab;
     },
     async authenticate() {
       calls.authenticate += 1;

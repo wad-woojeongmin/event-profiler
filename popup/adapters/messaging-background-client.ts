@@ -110,7 +110,7 @@ export function createMessagingBackgroundClient(
       await sendMessage("generateReport", undefined);
     },
 
-    async getActiveTabId() {
+    async getActiveTab() {
       const [active] = await browser.tabs.query({
         active: true,
         currentWindow: true,
@@ -118,7 +118,7 @@ export function createMessagingBackgroundClient(
       if (!active || typeof active.id !== "number") {
         throw new Error("활성 탭을 찾을 수 없습니다.");
       }
-      return active.id;
+      return { id: active.id, url: active.url };
     },
 
     async authenticate() {

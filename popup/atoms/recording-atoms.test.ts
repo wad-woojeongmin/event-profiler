@@ -93,7 +93,7 @@ describe("startRecordingAtom", () => {
 
   it("선택된 이벤트와 현재 탭 id를 전송하고 세션 상태를 갱신한다", async () => {
     store.set(setSelectionAtom, ["a", "b"]);
-    client.setActiveTabId(99);
+    client.setActiveTab({ id: 99, url: "https://www.catchtable.co.kr/" });
     client.setSessionState(activeSession);
 
     await store.set(startRecordingAtom);
@@ -103,6 +103,20 @@ describe("startRecordingAtom", () => {
     ]);
     expect(store.get(recordingSessionAtom)).toEqual(activeSession);
     expect(store.get(recordingPhaseAtom)).toBe("recording");
+  });
+
+  it("활성 탭이 catchtable 호스트가 아니면 클라이언트를 호출하지 않는다", async () => {
+    store.set(setSelectionAtom, ["a"]);
+    client.setActiveTab({ id: 99, url: "https://example.com/" });
+    await store.set(startRecordingAtom);
+    expect(client.calls.startRecording).toHaveLength(0);
+  });
+
+  it("활성 탭 url이 undefined면(권한 없음) no-op", async () => {
+    store.set(setSelectionAtom, ["a"]);
+    client.setActiveTab({ id: 99, url: undefined });
+    await store.set(startRecordingAtom);
+    expect(client.calls.startRecording).toHaveLength(0);
   });
 });
 

@@ -144,12 +144,13 @@ describe("createMessagingBackgroundClient", () => {
     unsubscribe();
   });
 
-  it("getActiveTabId는 활성 탭 id를 반환하고, 없으면 throw", async () => {
+  it("getActiveTab은 id와 url을 반환하고, 활성 탭이 없으면 throw", async () => {
     const client = createMessagingBackgroundClient();
     fakeBrowser.tabs.query = async () =>
       [
         {
           id: 123,
+          url: "https://www.catchtable.co.kr/orders",
           index: 0,
           highlighted: true,
           active: true,
@@ -158,10 +159,28 @@ describe("createMessagingBackgroundClient", () => {
           windowId: 1,
         },
       ] as never;
-    expect(await client.getActiveTabId()).toBe(123);
+    expect(await client.getActiveTab()).toEqual({
+      id: 123,
+      url: "https://www.catchtable.co.kr/orders",
+    });
+
+    // url은 호스트 권한이 없으면 undefined가 올 수 있다 — 그대로 전달한다.
+    fakeBrowser.tabs.query = async () =>
+      [
+        {
+          id: 7,
+          index: 0,
+          highlighted: true,
+          active: true,
+          pinned: false,
+          incognito: false,
+          windowId: 1,
+        },
+      ] as never;
+    expect(await client.getActiveTab()).toEqual({ id: 7, url: undefined });
 
     fakeBrowser.tabs.query = async () => [] as never;
-    await expect(client.getActiveTabId()).rejects.toThrow(/활성 탭/);
+    await expect(client.getActiveTab()).rejects.toThrow(/활성 탭/);
   });
 });
 

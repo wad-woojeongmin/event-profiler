@@ -54,8 +54,14 @@ export interface BackgroundClient {
   /** M8 리포트 HTML을 새 탭으로 띄운다. */
   generateReport(): Promise<void>;
 
-  /** 현재 활성 탭 id. 녹화 시작 시 같이 전송되어 배경 SW가 바인딩한다. */
-  getActiveTabId(): Promise<number>;
+  /**
+   * 현재 활성 탭의 id와 url. url은 호스트 매치 판정("지원 페이지" 배너 + 녹화
+   * 시작 가드)에 쓰고, id는 녹화 시작 시 배경 SW로 전송해 탭 바인딩에 쓴다.
+   *
+   * Chrome은 호스트 권한이 없는 탭의 `url`을 `undefined`로 돌려주므로 호출자는
+   * `@/content`의 `isSupportedUrl`로 보수적 판정을 한다(undefined = 미지원).
+   */
+  getActiveTab(): Promise<{ id: number; url: string | undefined }>;
 
   /**
    * Google OAuth 토큰을 명시적으로 발급한다(interactive). 로그인 버튼에서 사용.

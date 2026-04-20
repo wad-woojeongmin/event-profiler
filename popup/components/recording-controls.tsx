@@ -14,6 +14,7 @@ import {
   stopRecordingAtom,
   selectedEventNamesAtom,
 } from "../atoms/recording-atoms.ts";
+import { isSupportedTabAtom } from "../atoms/tab-atoms.ts";
 
 import * as styles from "./recording-controls.css.ts";
 
@@ -21,6 +22,7 @@ export function RecordingControls() {
   const phase = useAtomValue(recordingPhaseAtom);
   const session = useAtomValue(recordingSessionAtom);
   const selected = useAtomValue(selectedEventNamesAtom);
+  const isSupported = useAtomValue(isSupportedTabAtom);
   const start = useSetAtom(startRecordingAtom);
   const stop = useSetAtom(stopRecordingAtom);
   const generate = useSetAtom(generateReportAtom);
@@ -49,6 +51,11 @@ export function RecordingControls() {
     );
   }
 
+  // 재시작/시작 모두 동일 가드 — 선택 0건 또는 호스트 미매치는 차단.
+  // `isSupported === null`(아직 hydrate 전)은 허용 쪽으로 편향해 첫 프레임에서
+  // 버튼이 깜빡 disabled되는 것을 막는다; 액션 아톰이 재확인하므로 안전하다.
+  const startDisabled = selected.size === 0 || isSupported === false;
+
   if (phase === "recording_done" && session.session) {
     return (
       <section className={styles.wrapper}>
@@ -70,7 +77,7 @@ export function RecordingControls() {
             type="button"
             className={styles.buttonVariants.secondary}
             onClick={() => void start()}
-            disabled={selected.size === 0}
+            disabled={startDisabled}
           >
             다시 녹화
           </button>
@@ -79,14 +86,13 @@ export function RecordingControls() {
     );
   }
 
-  const disabled = selected.size === 0;
   return (
     <section className={styles.wrapper}>
       <button
         type="button"
         className={styles.buttonVariants.start}
         onClick={() => void start()}
-        disabled={disabled}
+        disabled={startDisabled}
       >
         ● 녹화 시작
       </button>
