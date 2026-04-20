@@ -6,13 +6,17 @@
 
 import { storage } from "wxt/utils/storage";
 
-import { SPECS_CACHE_KEY, type SpecsCachePayload } from "@/types/storage.ts";
+import {
+  SPECS_CACHE_FALLBACK,
+  SPECS_CACHE_KEY,
+  type SpecsCachePayload,
+} from "@/types/storage.ts";
 
 import type { SpecsCacheReader } from "../ports/specs-cache-reader.ts";
 
-// fallback은 소유자 어댑터와 동일(null). 드리프트 방지를 위해 키 상수 재사용.
+// 키·타입·fallback 모두 공용 심볼을 재사용해 소유자 어댑터와 완전히 일치시킨다.
 const specsCacheItem = storage.defineItem<SpecsCachePayload>(SPECS_CACHE_KEY, {
-  fallback: null,
+  fallback: SPECS_CACHE_FALLBACK,
 });
 
 export function createWxtSpecsCacheReader(): SpecsCacheReader {

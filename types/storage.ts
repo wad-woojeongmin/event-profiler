@@ -19,6 +19,12 @@ export const SPECS_CACHE_KEY = "local:specsCache" as const;
  */
 export type SpecsCachePayload = EventSpec[] | null;
 
+/**
+ * `local:specsCache` 초기값. 모든 어댑터의 `defineItem` fallback이 이 상수를
+ * 공유해야 "캐시 없음" 의미가 모듈별로 갈라지지 않는다.
+ */
+export const SPECS_CACHE_FALLBACK: SpecsCachePayload = null;
+
 /** `local:reportData` 키 상수. M8이 write, M4가 read. */
 export const REPORT_DATA_KEY = "local:reportData" as const;
 
