@@ -137,6 +137,20 @@
   color: var(--text-subtle);
 }
 
+.sheet-link {
+  font-size: 12px;
+}
+
+.sheet-link a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.sheet-link a:hover {
+  text-decoration: underline;
+}
+
 /* ───────── Event checklist ───────── */
 
 .event-search {

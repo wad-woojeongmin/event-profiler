@@ -18,7 +18,8 @@
 ```typescript
 // ports/background-client.ts
 export interface BackgroundClient {
-  loadSpecs(spreadsheetId: string, sheetTitle: string): Promise<EventSpec[]>;
+  /** 고정 시트에서 스펙 로드. sheetTitle 선택은 Phase 2에서 고려. */
+  loadSpecs(sheetTitle?: string): Promise<EventSpec[]>;
   startRecording(targetEventNames: string[], tabId: number): Promise<void>;
   stopRecording(): Promise<void>;
   getSessionState(): Promise<RecordingSessionState>;
@@ -82,10 +83,11 @@ idle → specs_loaded → recording → recording_done → (idle 또는 report_o
 ## UI 구성
 
 - 상단: 설정 섹션
-  - 시트 URL (or ID) 입력
+  - 고정 시트 링크 표시 (`sheets/constants.ts`의 `SPEC_SHEET_URL`)
   - `[스펙 불러오기]` 버튼 (M5 호출)
   - OAuth 미인증 시 `[Google 로그인]` 버튼
   - 로드된 스펙 수 표시
+  - **URL 입력 필드 없음** — 프로젝트는 단일 시트만 사용
 - 중단: 검증 대상 선택
   - `EventSpec` 목록을 체크박스로 표시 (amplitudeEventName + humanEventName + pageName 간단히)
   - 검색/필터 박스

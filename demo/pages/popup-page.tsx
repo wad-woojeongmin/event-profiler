@@ -25,12 +25,9 @@ export function PopupPage({ state, actions }: StateHandle) {
       ) : (
         <div className="popup-body">
           <SpecLoader
-            sheetUrl={state.sheetUrl}
             specsLoaded={state.specs.length}
             loading={state.specsLoading}
-            onChange={actions.setSheetUrl}
             onLoad={actions.loadSpecs}
-            onPrefill={actions.prefillDemoSheet}
           />
 
           <EventChecklist

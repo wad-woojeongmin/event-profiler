@@ -18,8 +18,7 @@ export interface DemoState {
   view: DemoView;
   auth: AuthStatus;
 
-  // spec 로드 흐름
-  sheetUrl: string;
+  // spec 로드 흐름 — 시트 URL은 sheets/constants.ts에 고정되어 입력 UI 없음
   specs: EventSpec[];
   specsLoading: boolean;
 
@@ -35,13 +34,9 @@ export interface DemoState {
   report: ValidationReport | null;
 }
 
-const DEMO_SHEET_URL =
-  "https://docs.google.com/spreadsheets/d/1ABCdef-DEMO-FIXTURE/edit";
-
 const initialState: DemoState = {
   view: "popup",
   auth: "signed_out",
-  sheetUrl: "",
   specs: [],
   specsLoading: false,
   selectedEventNames: new Set(),
@@ -78,14 +73,6 @@ export function useDemoState() {
 
   const signOut = useCallback(() => {
     setState(() => ({ ...initialState }));
-  }, []);
-
-  const setSheetUrl = useCallback((url: string) => {
-    setState((prev) => ({ ...prev, sheetUrl: url }));
-  }, []);
-
-  const prefillDemoSheet = useCallback(() => {
-    setState((prev) => ({ ...prev, sheetUrl: DEMO_SHEET_URL }));
   }, []);
 
   const loadSpecs = useCallback(async () => {
@@ -158,8 +145,6 @@ export function useDemoState() {
     actions: {
       signIn,
       signOut,
-      setSheetUrl,
-      prefillDemoSheet,
       loadSpecs,
       toggleSelection,
       selectAll,

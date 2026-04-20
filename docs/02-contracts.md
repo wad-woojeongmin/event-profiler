@@ -150,7 +150,7 @@ export interface RecordingSessionState {
 
 | 저장소                    | 키/Store                     | 용도                                   | 크기 가이드    |
 | ------------------------- | ---------------------------- | -------------------------------------- | -------------- |
-| `wxt/storage` `local:*`   | `local:settings`             | 시트 URL, 최근 선택 이벤트, OAuth 설정 | <50KB          |
+| `wxt/storage` `local:*`   | `local:settings`             | 최근 선택 이벤트, 탭 선택 등 (시트 URL은 `sheets/constants.ts`에 고정) | <50KB          |
 | `wxt/storage` `local:*`   | `local:specsCache`           | 마지막으로 불러온 `EventSpec[]`        | <500KB         |
 | `wxt/storage` `local:*`   | `local:reportData`           | 뷰어 모드 리포트 payload (M8)          | <20MB          |
 | `wxt/storage` `session:*` | `session:recordingState`     | 현재 녹화 세션 상태 (SW 재시작 대비)   | <10KB          |
