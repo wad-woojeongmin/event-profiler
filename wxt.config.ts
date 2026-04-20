@@ -20,7 +20,7 @@ export default defineConfig({
     const EXTENSION_PUBLIC_KEY = import.meta.env.WXT_EXTENSION_PUBLIC_KEY;
 
     return {
-      name: "Event Validator",
+      name: "Event Profiler",
       version: "0.1.0",
       description:
         "Catch Table 이벤트 스펙과 실제 수집 로그를 비교해 누락·오수집을 검출합니다.",

@@ -80,7 +80,7 @@ import { defineConfig } from "wxt";
 export default defineConfig({
   modules: ["@wxt-dev/module-react"],
   manifest: {
-    name: "Event Validator",
+    name: "Event Profiler",
     permissions: ["activeTab", "tabs", "storage", "identity", "scripting"],
     host_permissions: ["https://*.catchtable.co.kr/*"],
     key: "<public key>",
