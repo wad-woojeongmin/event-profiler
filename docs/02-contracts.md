@@ -162,3 +162,18 @@ export interface RecordingSessionState {
 - `chrome.storage.*`/`browser.storage.*` 직접 사용 금지. **`wxt/storage.defineItem<T>('local:key')` 패턴**만 사용 (`.claude/wxt-docs/storage.md`).
 - IndexedDB는 `wxt/storage` 범위 밖 → 어댑터에서 직접 사용하되, 포트는 도메인 타입만 노출 (03-conventions §부작용 격리).
 - **세션 경계**: 새 녹화 시작 시 `events`/`screenshots` store를 clear. 이전 세션은 리포트 생성 후 파기(Phase 1). Phase 2에서 세션 히스토리 도입.
+
+## 공용 스토리지 키
+
+여러 모듈이 같은 키를 읽고 쓰는 경우, 스키마 드리프트를 구조적으로 차단하기 위해 **타입은 `types/`로 export**하고 `defineItem` 호출은 소유자 모듈에만 둔다. 소비자는 같은 스키마 타입을 import하여 read-only `defineItem`을 선언한다.
+
+| 키                   | 스키마 타입 (types/ export)                  | 소유자 (쓰기)                | 소비자 (읽기)                           | 변경 정책 |
+| -------------------- | -------------------------------------------- | ---------------------------- | --------------------------------------- | --------- |
+| `local:specsCache`   | `SpecsCachePayload = EventSpec[] \| null` (`types/storage.ts`) | M5 (sheets) / M3 (background SettingsStore) | M4 (popup), M8 (report SW)              | 키 이름·스키마 변경 시 M8·popup 영향 플래그 필수 |
+| `local:reportData`   | `ReportPayload = ValidationReport` (`types/storage.ts`)        | M8 (report SW)               | M4 (popup 뷰어)                         | M8이 write, M4가 read. 형식 변경 시 M4 합의 |
+
+**규약**:
+
+- 새 공용 키를 추가하려면 이 섹션에 먼저 등록하고 `types/storage.ts`에 스키마를 export한다.
+- 소유자가 아닌 모듈은 **read-only**만 허용. 필요 시 소유자 API를 경유.
+- 스키마(타입/키 이름) 변경은 소비자 모두와 합의해야 하며 PR 설명에 영향 범위를 명시.
