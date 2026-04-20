@@ -28,7 +28,9 @@ export const SESSION_POLL_INTERVAL_MS = 500;
 
 /**
  * 타이머 핸들은 Node/브라우저 환경 차이로 타입이 다르다(`Timeout` vs `number`).
- * 테스트에서 임의 값을 반환할 수 있도록 opaque 타입으로 노출한다.
+ * `ReturnType<typeof setInterval>`로 좁히면 vitest가 DOM + Node lib를 동시에
+ * 로드하는 환경에서 유니온이 발생해 `clearInterval` 시 캐스트가 필요해진다.
+ * 테스트에서 임의 값을 반환할 수 있게 opaque 타입으로 노출한 뒤 내부에서만 캐스트한다.
  */
 export type PollTimerHandle = unknown;
 

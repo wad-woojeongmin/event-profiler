@@ -46,15 +46,24 @@ function ClientInjector({ client }: { client: BackgroundClient }) {
 /**
  * 팝업 마운트 시 현재 세션 스냅샷을 pull하고 변경 구독을 건다. unmount 시
  * unsubscribe를 호출해 폴링 타이머 누수를 막는다.
+ *
+ * 주의: `hydrate()`는 내부에서 `getSessionState` → `subscribeSession` 순으로
+ * 비동기 진행하므로, 첫 tick이 resolve되기 전에 cleanup이 먼저 돌 수 있다.
+ * 그 경우 `unsubscribe` 핸들이 미설정 상태로 영영 유실되므로(타이머만 계속 돎),
+ * `cancelled` 플래그로 "resolve되면 즉시 해제"를 보장한다. StrictMode의
+ * mount → 즉시 cleanup → mount 패턴에서 이 경로가 항상 활성화된다.
  */
 function SessionBridge() {
   const hydrate = useSetAtom(hydrateSessionAtom);
   useEffect(() => {
+    let cancelled = false;
     let unsubscribe: (() => void) | undefined;
     void hydrate().then((fn) => {
-      unsubscribe = fn;
+      if (cancelled) fn();
+      else unsubscribe = fn;
     });
     return () => {
+      cancelled = true;
       unsubscribe?.();
     };
   }, [hydrate]);

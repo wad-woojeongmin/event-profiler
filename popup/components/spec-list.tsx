@@ -23,7 +23,9 @@ export function SpecList() {
   const setSelection = useSetAtom(setSelectionAtom);
 
   const disabled = phase === "recording";
-  const selectAll = (): void => {
+  // "표시 전체 선택"은 현재 필터 결과에 한정한다. 버튼 라벨로 이 경계를 명시하여
+  // 필터 바깥 기존 선택이 덮어써지는 동작이 예측 가능하도록 한다.
+  const selectVisible = (): void => {
     setSelection(filtered.map((spec) => spec.amplitudeEventName));
   };
   const clearAll = (): void => {
@@ -38,10 +40,10 @@ export function SpecList() {
           <button
             type="button"
             className={styles.miniButton}
-            onClick={selectAll}
+            onClick={selectVisible}
             disabled={disabled || filtered.length === 0}
           >
-            전체 선택
+            표시 전체 선택
           </button>
           <button
             type="button"
@@ -74,7 +76,7 @@ export function SpecList() {
             : "검색 조건에 맞는 이벤트가 없습니다."}
         </div>
       ) : (
-        <ul className={styles.list} role="listbox" aria-multiselectable="true">
+        <ul className={styles.list}>
           {filtered.map((spec) => {
             const checked = selected.has(spec.amplitudeEventName);
             return (

@@ -96,8 +96,9 @@ export function RecordingControls() {
 
 function ElapsedTime({ startedAt }: { startedAt: number }) {
   const [now, setNow] = useState(() => Date.now());
+  // 표시 단위가 초이므로 1s tick이면 충분하다. 팝업 유휴 CPU를 절반으로 줄인다.
   useEffect(() => {
-    const handle = setInterval(() => setNow(Date.now()), 500);
+    const handle = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(handle);
   }, []);
   const seconds = Math.max(0, Math.floor((now - startedAt) / 1000));
