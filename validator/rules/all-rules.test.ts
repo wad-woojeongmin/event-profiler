@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { makeEvent, makeSpec } from "../test-fixtures.ts";
+import { makeEvent, makeSpec } from "../test-fixtures.test-util.ts";
 import type { ValidationContext } from "../ports/validation-rule.ts";
 import { emptyParamRule } from "./empty-param.ts";
 import { missingParamRule } from "./missing-param.ts";
