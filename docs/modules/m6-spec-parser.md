@@ -7,9 +7,20 @@
 ## 공개 API
 
 ```typescript
+// 1급 API — Sheets API `spreadsheets.values.get`의 `values`를 직결
+export function parseSpecRows(
+  rows: string[][],
+  options?: ParseOptions,
+): ParseResult;
+
+// CSV 파일 업로드/클립보드 경로용 래퍼 (내부에서 papaparse → parseSpecRows)
 export function parseSpecCsv(csv: string, options?: ParseOptions): ParseResult;
+
 // ParseResult = { specs: EventSpec[]; warnings: ParseWarning[] }
 ```
+
+- **프로덕션(Sheets API) 경로는 반드시 `parseSpecRows` 사용**. CSV 직렬화/역직렬화 왕복을 피하기 위한 결정.
+- `parseSpecCsv`는 CSV 파일 업로드/클립보드 붙여넣기 등 텍스트 입력 경로용 얇은 래퍼.
 
 ## 동작 요약 (변경 금지 — 다른 모듈 의존)
 

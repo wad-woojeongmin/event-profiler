@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseParams, parseSpecCsv } from "./spec-parser.ts";
+import { parseParams, parseSpecCsv, parseSpecRows } from "./spec-parser.ts";
 
 function csv(lines: string[]): string {
   return lines.join("\n");
@@ -147,5 +147,31 @@ describe("parseParams", () => {
     expect(warnings.some((w) => w.code === "param_unparseable_token")).toBe(
       true,
     );
+  });
+});
+
+describe("parseSpecRows", () => {
+  // Sheets API `spreadsheets.values.get`가 반환하는 형태를 직접 주입하는 경로.
+  // parseSpecCsv는 이 함수의 얇은 래퍼이므로 동일한 결과를 내야 한다.
+  it("parses string[][] rows identically to parseSpecCsv", () => {
+    const header1 = HEADER_LINE_1.split(",");
+    const header2 = HEADER_LINE_2.split(",");
+    const dataRow = [
+      "검수완료", "applied", "", "0", "A", "B", "2025-09-02", "C", "D",
+      "매장상세", "shopDetail", "shopDetail", "appDown", "appDown", "app", "app",
+      "click", "click", "bottomsheet", "click__app", "", "",
+      "$shopRef, $shopName, $serviceType", "shopDetail_appDown_app_click_",
+      "shopDetail_appDown_app_click", "", "", "",
+    ];
+
+    const { specs, warnings } = parseSpecRows([header1, header2, dataRow]);
+    expect(warnings).toEqual([]);
+    expect(specs).toHaveLength(1);
+    expect(specs[0]).toMatchObject({
+      amplitudeEventName: "shopDetail_appDown_app_click",
+      humanEventName: "click__app",
+      pageName: "shopDetail",
+      params: ["shopRef", "shopName", "serviceType"],
+    });
   });
 });

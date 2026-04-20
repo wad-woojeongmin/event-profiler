@@ -18,25 +18,36 @@ export interface ParseOptions {
 const DEFAULT_HEADER_ROW = 1;
 
 /**
- * 스펙 시트 CSV를 EventSpec 레코드로 변환한다.
+ * 스펙 시트 CSV 문자열을 EventSpec 레코드로 변환한다.
  *
- * 시트는 PM/DA가 자유롭게 편집하므로 파서는 관용적으로 동작한다:
- * - 컬럼은 위치가 아닌 **헤더 이름**으로 찾는다 (시트마다 컬럼 수가 다름).
- * - `to-be` 값을 우선하되 비어있으면 `as-is`로 fallback.
- * - `extension` 셀은 placeholder, 설명, 중복이 섞인 자유 텍스트.
- * - status 필터는 하지 않는다 — 개발 중(draft/broken) 행도 검증 대상.
+ * 본 함수는 CSV 파일 업로드/클립보드 붙여넣기 같은 텍스트 입력 경로를
+ * 위한 얇은 래퍼다. 프로덕션의 Sheets API 경로는 `parseSpecRows`에
+ * `string[][]`를 직접 전달하여 CSV 직렬화/역직렬화 왕복을 피한다.
  */
 export function parseSpecCsv(
   csv: string,
   options: ParseOptions = {},
 ): ParseResult {
+  const parsed = Papa.parse<string[]>(csv, { skipEmptyLines: false });
+  return parseSpecRows(parsed.data, options);
+}
+
+/**
+ * 스펙 시트의 행 배열(`string[][]`)을 EventSpec 레코드로 변환한다.
+ *
+ * Sheets API `spreadsheets.values.get`이 돌려주는 `values`를 그대로 넘겨
+ * 사용한다. 시트는 PM/DA가 자유롭게 편집하므로 파서는 관용적으로 동작한다:
+ * - 컬럼은 위치가 아닌 **헤더 이름**으로 찾는다 (시트마다 컬럼 수가 다름).
+ * - `to-be` 값을 우선하되 비어있으면 `as-is`로 fallback.
+ * - `extension` 셀은 placeholder, 설명, 중복이 섞인 자유 텍스트.
+ * - status 필터는 하지 않는다 — 개발 중(draft/broken) 행도 검증 대상.
+ */
+export function parseSpecRows(
+  rows: string[][],
+  options: ParseOptions = {},
+): ParseResult {
   const headerRowIndex = options.headerRowIndex ?? DEFAULT_HEADER_ROW;
   const sheetName = options.sheetName;
-
-  const parsed = Papa.parse<string[]>(csv, {
-    skipEmptyLines: false,
-  });
-  const rows = parsed.data;
 
   const warnings: ParseWarning[] = [];
   const specs: EventSpec[] = [];

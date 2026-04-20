@@ -27,8 +27,9 @@ export interface SheetTab {
 export interface SheetsSource {
   /** 고정 시트의 탭 목록. 인증 만료 시 내부에서 재인증 처리. */
   listTabs(): Promise<SheetTab[]>;
-  /** CSV text. M6 parseSpecCsv에 그대로 투입 가능한 포맷. */
-  fetchAsCsv(sheetTitle: string): Promise<string>;
+  /** Sheets API `spreadsheets.values.get`의 `values`(string[][])를 그대로 반환.
+   *  M6 `parseSpecRows`에 직결 — CSV 직렬화/역직렬화 왕복을 피한다. */
+  fetchRows(sheetTitle: string): Promise<string[][]>;
   /** 명시적 인증 흐름이 필요한 UI용 */
   authenticate(): Promise<void>;
   signOut(): Promise<void>;
@@ -57,7 +58,7 @@ export interface SheetsSource {
 2. **시트 조회**
    - `spreadsheets.get`으로 `SPEC_SPREADSHEET_ID`의 탭 목록 획득
    - UI에서 사용자가 탭 선택 → 해당 탭의 A1:ZZ 범위를 `spreadsheets.values.get`으로 다운로드
-   - 받은 `values: string[][]`를 CSV text로 직렬화 (papaparse `unparse`)
+   - `values: string[][]`를 그대로 반환. CSV 직렬화하지 않음 (M6 `parseSpecRows`가 rows를 직접 받음)
 3. **캐시**
    - 다운로드 후 `local:specsCache`(wxt/storage `defineItem`)에 저장 (파싱 전/후 모두 저장해도 무방)
 4. **에러 처리**
@@ -71,15 +72,15 @@ export interface SheetsSource {
 export async function authenticate(interactive: boolean): Promise<string>; // token
 export async function signOut(): Promise<void>;
 export async function listSheetTabs(): Promise<{ title: string; gid: number }[]>;
-export async function fetchSheetAsCsv(sheetTitle: string): Promise<string>;
+export async function fetchSheetRows(sheetTitle: string): Promise<string[][]>;
 ```
 
 ## 수용 기준
 
 - [ ] 최초 실행 시 Google 로그인 창이 뜨고, 이후 재발급은 silent
-- [ ] 다운로드된 CSV가 `parseSpecCsv()`에 통과
+- [ ] 다운로드된 rows가 `parseSpecRows()`에 통과
 - [ ] 토큰 만료 시 자동 재발급 (한 번)
-- [ ] 유닛 테스트: CSV 직렬화 형식
+- [ ] 유닛 테스트: rows 페치 후 `parseSpecRows`와 조립하여 EventSpec 추출
 
 ## 유의점
 
