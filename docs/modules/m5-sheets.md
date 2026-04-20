@@ -52,34 +52,38 @@ export interface SheetsSource {
 ## 요구사항
 
 1. **인증**
-   - `browser.identity.getAuthToken({ interactive: true })`로 access token 획득
+   - `browser.identity.getAuthToken`으로 access token 획득
    - 스코프: `https://www.googleapis.com/auth/spreadsheets.readonly`
-   - 토큰 만료 시 재발급 흐름 (`browser.identity.removeCachedAuthToken` → 재호출)
+   - 데이터 호출(`listTabs`/`fetchRows`)은 먼저 `interactive=false`(silent)로 시도하여 불필요한 OAuth 팝업을 피하고, silent 실패 시에만 `interactive=true`로 승급
+   - 401/403 응답 시 `browser.identity.removeCachedAuthToken` → `interactive=true` 재발급 → 1회 재시도 (재시도 결과가 또 401/403이면 에러 전파, 무한 루프 방지)
 2. **시트 조회**
    - `spreadsheets.get`으로 `SPEC_SPREADSHEET_ID`의 탭 목록 획득
    - UI에서 사용자가 탭 선택 → 해당 탭의 A1:ZZ 범위를 `spreadsheets.values.get`으로 다운로드
    - `values: string[][]`를 그대로 반환. CSV 직렬화하지 않음 (M6 `parseSpecRows`가 rows를 직접 받음)
 3. **캐시**
-   - 다운로드 후 `local:specsCache`(wxt/storage `defineItem`)에 저장 (파싱 전/후 모두 저장해도 무방)
+   - 파싱된 `EventSpec[]`의 `local:specsCache`(02-contracts) 기록은 **소비자(M3/팝업) 책임**. M5는 파서에 의존하지 않도록 캐싱을 수행하지 않는다. (M5 내부 rows 캐시가 필요해지면 read API를 포함해 별도 PR에서 도입)
 4. **에러 처리**
-   - 401/403: 재인증 안내
+   - 401/403: 위 §인증 경로로 자동 복구
    - 404: 상수의 `SPEC_SPREADSHEET_ID`가 잘못되었거나 사용자의 시트 접근 권한 부족 — 시트 공유 설정 안내
-   - Rate limit: 지수 백오프 1회 재시도
+   - 429 (rate limit): 고정 1초 백오프 후 1회 재시도
 
 ## 공개 API
 
 ```typescript
-export async function authenticate(interactive: boolean): Promise<string>; // token
+// sheets/index.ts — 기본 어댑터 인스턴스 기반 편의 함수
+export async function authenticate(): Promise<void>;
 export async function signOut(): Promise<void>;
-export async function listSheetTabs(): Promise<{ title: string; gid: number }[]>;
+export async function listSheetTabs(): Promise<SheetTab[]>;
 export async function fetchSheetRows(sheetTitle: string): Promise<string[][]>;
 ```
 
+`authenticate`는 UI "로그인" 버튼 등에서 호출되는 명시적(interactive) 플로우다. 토큰 값은 포트·어댑터 밖으로 노출하지 않는다(공개 API 무누출 원칙).
+
 ## 수용 기준
 
-- [ ] 최초 실행 시 Google 로그인 창이 뜨고, 이후 재발급은 silent
+- [ ] 최초 실행 시 Google 로그인 창이 뜨고, 이후 재발급은 silent (데이터 호출은 `interactive=false` 선행)
 - [ ] 다운로드된 rows가 `parseSpecRows()`에 통과
-- [ ] 토큰 만료 시 자동 재발급 (한 번)
+- [ ] 401/403 시 자동 재인증 한 번, 429 시 고정 백오프 한 번 — 각각 단일 분기 재시도
 - [ ] 유닛 테스트: rows 페치 후 `parseSpecRows`와 조립하여 EventSpec 추출
 
 ## 유의점

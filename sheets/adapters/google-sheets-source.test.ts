@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeBrowser } from "wxt/testing/fake-browser";
-import { storage } from "wxt/utils/storage";
 
 import { parseSpecRows } from "../spec-parser.ts";
 import type { FetchFn } from "../google-sheets-api.ts";
@@ -35,17 +34,24 @@ function jsonRes(body: unknown, status = 200): Response {
   });
 }
 
+interface TokenCalls {
+  getToken: boolean[]; // interactive 인자 이력
+  removeToken: string[];
+  clearAll: number;
+}
+
+/** 호출 이력을 기록하는 fake TokenProvider. */
 function createFakeTokenProvider(
   tokens: string[] = ["tok-1"],
-): TokenProvider & { calls: { getToken: number; removeToken: string[]; clearAll: number } } {
-  const calls = { getToken: 0, removeToken: [] as string[], clearAll: 0 };
+): TokenProvider & { calls: TokenCalls } {
+  const calls: TokenCalls = { getToken: [], removeToken: [], clearAll: 0 };
   let index = 0;
   return {
     calls,
-    async getToken() {
+    async getToken(interactive: boolean) {
+      calls.getToken.push(interactive);
       const token = tokens[Math.min(index, tokens.length - 1)]!;
       index += 1;
-      calls.getToken += 1;
       return token;
     },
     async removeToken(token: string) {
@@ -105,23 +111,42 @@ describe("createGoogleSheetsSource", () => {
     });
   });
 
-  it("fetchRows 성공 시 local:sheetRowsCache에 탭별로 저장한다", async () => {
-    const fetchFn = mockFetch(async () => jsonRes({ values: SAMPLE_ROWS }));
+  it("데이터 호출은 silent 토큰을 먼저 시도한다", async () => {
+    const fetchFn = mockFetch(async () => jsonRes({ values: [["x"]] }));
+    const tokenProvider = createFakeTokenProvider();
     const source = createGoogleSheetsSource({
       fetchFn,
-      tokenProvider: createFakeTokenProvider(),
+      tokenProvider,
       spreadsheetId: "sid",
     });
 
     await source.fetchRows("main");
-    const cached = await storage.getItem<Record<string, string[][]>>(
-      "local:sheetRowsCache",
-    );
-    expect(cached).not.toBeNull();
-    expect(cached?.main).toEqual(SAMPLE_ROWS);
+    expect(tokenProvider.calls.getToken).toEqual([false]);
   });
 
-  it("401 응답이면 토큰을 폐기하고 새 토큰으로 한 번 재시도한다", async () => {
+  it("silent 발급 실패 시 대화형으로 승급한다", async () => {
+    const fetchFn = mockFetch(async () => jsonRes({ values: [["x"]] }));
+    const calls: TokenCalls = { getToken: [], removeToken: [], clearAll: 0 };
+    const tokenProvider: TokenProvider = {
+      async getToken(interactive) {
+        calls.getToken.push(interactive);
+        if (!interactive) throw new Error("no cache");
+        return "fresh";
+      },
+      async removeToken() {},
+      async clearAll() {},
+    };
+    const source = createGoogleSheetsSource({
+      fetchFn,
+      tokenProvider,
+      spreadsheetId: "sid",
+    });
+
+    await source.fetchRows("main");
+    expect(calls.getToken).toEqual([false, true]);
+  });
+
+  it("401 응답이면 토큰을 폐기하고 대화형 재발급 후 한 번 재시도한다", async () => {
     const fetchFn = mockFetch(async () => jsonRes({ values: [["x"]] }));
     fetchFn
       .mockResolvedValueOnce(new Response("unauthorized", { status: 401 }))
@@ -137,10 +162,31 @@ describe("createGoogleSheetsSource", () => {
     const rows = await source.fetchRows("main");
     expect(rows).toEqual([["x"]]);
     expect(tokenProvider.calls.removeToken).toEqual(["stale"]);
-    const secondCallInit = fetchFn.mock.calls[1]?.[1] as RequestInit;
-    expect((secondCallInit.headers as Record<string, string>).Authorization).toBe(
+    // 최초 silent → 재발급 interactive
+    expect(tokenProvider.calls.getToken).toEqual([false, true]);
+    const secondInit = fetchFn.mock.calls[1]?.[1] as RequestInit;
+    expect((secondInit.headers as Record<string, string>).Authorization).toBe(
       "Bearer fresh",
     );
+  });
+
+  it("403 응답도 401과 같은 재인증 경로로 복구한다", async () => {
+    const fetchFn = mockFetch(async () => jsonRes({ values: [["ok"]] }));
+    fetchFn
+      .mockResolvedValueOnce(new Response("forbidden", { status: 403 }))
+      .mockResolvedValueOnce(jsonRes({ values: [["ok"]] }));
+    const tokenProvider = createFakeTokenProvider(["stale", "fresh"]);
+
+    const source = createGoogleSheetsSource({
+      fetchFn,
+      tokenProvider,
+      spreadsheetId: "sid",
+    });
+
+    const rows = await source.fetchRows("main");
+    expect(rows).toEqual([["ok"]]);
+    expect(tokenProvider.calls.removeToken).toEqual(["stale"]);
+    expect(tokenProvider.calls.getToken).toEqual([false, true]);
   });
 
   it("429 응답이면 백오프 후 한 번 재시도한다", async () => {
@@ -161,7 +207,7 @@ describe("createGoogleSheetsSource", () => {
     expect(sleepFn).toHaveBeenCalledTimes(1);
   });
 
-  it("재시도 후에도 실패하면 에러가 전파된다", async () => {
+  it("재시도 후에도 실패하면 에러가 전파된다(단일 분기)", async () => {
     const fetchFn = mockFetch(async () => new Response("x", { status: 401 }));
     fetchFn
       .mockResolvedValueOnce(new Response("x", { status: 401 }))
@@ -175,26 +221,51 @@ describe("createGoogleSheetsSource", () => {
     await expect(source.fetchRows("main")).rejects.toThrow(/401/);
   });
 
-  it("authenticate는 토큰 발급만 하고 결과를 노출하지 않는다", async () => {
+  it("authenticate는 interactive=true로 토큰을 요청한다", async () => {
     const tokenProvider = createFakeTokenProvider();
     const source = createGoogleSheetsSource({
       fetchFn: mockFetch(async () => jsonRes({})),
       tokenProvider,
       spreadsheetId: "sid",
     });
-    const result = await source.authenticate();
-    expect(result).toBeUndefined();
-    expect(tokenProvider.calls.getToken).toBe(1);
+    await source.authenticate();
+    expect(tokenProvider.calls.getToken).toEqual([true]);
   });
 
-  it("signOut은 tokenProvider.clearAll을 호출한다", async () => {
-    const tokenProvider = createFakeTokenProvider();
+  it("signOut은 캐시 토큰을 명시적으로 폐기한 뒤 clearAll을 호출한다", async () => {
+    const tokenProvider = createFakeTokenProvider(["cached"]);
     const source = createGoogleSheetsSource({
       fetchFn: mockFetch(async () => jsonRes({})),
       tokenProvider,
       spreadsheetId: "sid",
     });
     await source.signOut();
+    expect(tokenProvider.calls.getToken).toEqual([false]);
+    expect(tokenProvider.calls.removeToken).toEqual(["cached"]);
     expect(tokenProvider.calls.clearAll).toBe(1);
+  });
+
+  it("signOut은 캐시 토큰이 없어도 clearAll까지 도달한다", async () => {
+    const calls: TokenCalls = { getToken: [], removeToken: [], clearAll: 0 };
+    const tokenProvider: TokenProvider = {
+      async getToken() {
+        calls.getToken.push(false);
+        throw new Error("no cached token");
+      },
+      async removeToken(token) {
+        calls.removeToken.push(token);
+      },
+      async clearAll() {
+        calls.clearAll += 1;
+      },
+    };
+    const source = createGoogleSheetsSource({
+      fetchFn: mockFetch(async () => jsonRes({})),
+      tokenProvider,
+      spreadsheetId: "sid",
+    });
+    await source.signOut();
+    expect(calls.removeToken).toEqual([]);
+    expect(calls.clearAll).toBe(1);
   });
 });
