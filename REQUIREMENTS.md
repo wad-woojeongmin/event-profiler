@@ -168,10 +168,10 @@ event-profiler/sun-valley/              (Chrome Extension 레포)
 │   │   │   ├── event-checklist.tsx
 │   │   │   ├── recording-controls.tsx
 │   │   │   └── ...
-│   │   ├── stores/                     # Zustand 슬라이스
-│   │   │   ├── recording-store.ts
-│   │   │   ├── specs-store.ts
-│   │   │   └── settings-store.ts
+│   │   ├── atoms/                      # Jotai 아톰 그룹
+│   │   │   ├── recording-atoms.ts
+│   │   │   ├── specs-atoms.ts
+│   │   │   └── settings-atoms.ts
 │   │   ├── ports/
 │   │   │   └── background-client.ts    # SW와의 통신 추상화
 │   │   ├── adapters/
@@ -504,7 +504,7 @@ src/<module>/
 | 언어              | **TypeScript** (strict, noUncheckedIndexedAccess)              | 타입 안전                                                                 |
 | 프레임워크/번들러 | **WXT** (`wxt`, Vite 기반)                                     | MV3 빌드, entrypoints 자동 수집, HMR, manifest 생성, 크로스 브라우저 옵션 |
 | UI                | **React 19**                                                   | 복잡한 팝업/리포트 상호작용 상태 관리                                     |
-| 상태 관리         | **Zustand**                                                    | 가벼움, slice 기반 SRP 친화적, 스토어 주입 용이                           |
+| 상태 관리         | **Jotai**                                                      | 원자 단위 상태, 파생 아톰으로 SRP 친화적, Provider 기반 주입 용이         |
 | 스타일            | **vanilla-extract** (`@vanilla-extract/css` + vite 플러그인)   | 타입 안전한 CSS-in-TS, zero-runtime                                       |
 | 테스트            | Vitest (+ `@testing-library/react` for UI)                     | Vite 일관성                                                               |
 | CSV 파서          | `papaparse`                                                    | 멀티라인 셀 처리 견고                                                     |
@@ -516,15 +516,15 @@ src/<module>/
 
 ### 4.1. 스택 적용 범위
 
-| 모듈                |      React       | Zustand | vanilla-extract |
+| 모듈                |      React       |  Jotai  | vanilla-extract |
 | ------------------- | :--------------: | :-----: | :-------------: |
 | M2 content script   |        ❌        |   ❌    |       ❌        |
 | M3 background SW    |        ❌        |   ❌    |       ❌        |
 | M4 popup UI         |        ✅        |   ✅    |       ✅        |
 | M8 report generator | ✅ (문자열 렌더) |   ❌    |       ✅        |
 
-- **Content Script / SW는 React/Zustand 금지**: 런타임/SW 환경에서 불필요, bundle 크기 증가
-- Zustand는 팝업 UI 경계 **내부에서만** 사용. 다른 모듈에 Zustand 스토어 타입/훅을 export 금지 (§3.6 철칙 1).
+- **Content Script / SW는 React/Jotai 금지**: 런타임/SW 환경에서 불필요, bundle 크기 증가
+- Jotai는 팝업 UI 경계 **내부에서만** 사용. 다른 모듈에 Jotai 아톰 타입/훅을 export 금지 (§3.6 철칙 1).
 
 ### 4.2. WXT 설정 가이드라인
 
@@ -763,7 +763,7 @@ export async function getScreenshot(id: string): Promise<Blob | null>;
 - `src/popup/*` — 로직 (app.tsx, components/, stores/, ports/, adapters/, styles)
 - `wxt.config.ts` — manifest 선언 (key, oauth2, permissions 등)
 
-**스택**: React 19 + Zustand + vanilla-extract + WXT
+**스택**: React 19 + Jotai + vanilla-extract + WXT
 
 #### 책임
 
@@ -786,45 +786,63 @@ export interface BackgroundClient {
 ```
 
 어댑터 `runtime-background-client.ts`가 `chrome.runtime.sendMessage`/`onMessage`를 사용하여 구현.
-**Zustand 스토어/React hook 타입을 이 포트에 노출 금지.**
+**Jotai 아톰/React hook 타입을 이 포트에 노출 금지.**
 
-#### Zustand 스토어 설계
+#### Jotai 아톰 설계
 
-스토어는 **기능별 슬라이스로 분리** (SRP). 스토어끼리 직접 참조 금지 — 필요하면 셀렉터 합성으로 조합.
+아톰은 **기능별 그룹으로 분리** (SRP). 그룹 간 직접 참조 금지 — 필요하면 파생 아톰(derived atom)으로 합성.
 
 ```typescript
-// stores/specs-store.ts
-interface SpecsStore {
-  specs: EventSpec[];
-  loadState: "idle" | "loading" | "error";
-  error: string | undefined;
-  load: (spreadsheetId: string, sheetTitle: string) => Promise<void>;
-  clear: () => void;
-}
+// atoms/specs-atoms.ts
+export const specsAtom = atom<EventSpec[]>([]);
+export const specsLoadStateAtom = atom<"idle" | "loading" | "error">("idle");
+export const specsErrorAtom = atom<string | undefined>(undefined);
+export const loadSpecsAtom = atom(
+  null,
+  async (_get, set, args: { spreadsheetId: string; sheetTitle: string }) => {
+    /* write-only 액션 아톰 */
+  },
+);
+export const clearSpecsAtom = atom(null, (_get, set) => {
+  /* ... */
+});
 
-// stores/recording-store.ts
-interface RecordingStore {
-  session: RecordingSessionState | null;
-  selectedEventNames: Set<string>;
-  toggleSelection: (eventName: string) => void;
-  selectAll: () => void;
-  clearSelection: () => void;
-  start: () => Promise<void>;
-  stop: () => Promise<void>;
-}
+// atoms/recording-atoms.ts
+export const recordingSessionAtom = atom<RecordingSessionState | null>(null);
+export const selectedEventNamesAtom = atom<Set<string>>(new Set());
+export const toggleSelectionAtom = atom(null, (get, set, eventName: string) => {
+  /* ... */
+});
+export const selectAllAtom = atom(null, (_get, set) => {
+  /* ... */
+});
+export const clearSelectionAtom = atom(null, (_get, set) => {
+  /* ... */
+});
+export const startRecordingAtom = atom(null, async (_get, set) => {
+  /* ... */
+});
+export const stopRecordingAtom = atom(null, async (_get, set) => {
+  /* ... */
+});
 
-// stores/settings-store.ts
-interface SettingsStore {
-  spreadsheetId: string;
-  sheetTitle: string;
-  setSpreadsheet: (id: string, title: string) => void;
-  hydrate: () => Promise<void>; // chrome.storage에서 복원
-}
+// atoms/settings-atoms.ts
+export const spreadsheetIdAtom = atom<string>("");
+export const sheetTitleAtom = atom<string>("");
+export const setSpreadsheetAtom = atom(
+  null,
+  (_get, set, payload: { id: string; title: string }) => {
+    /* ... */
+  },
+);
+export const hydrateSettingsAtom = atom(null, async (_get, set) => {
+  /* chrome.storage에서 복원 */
+});
 ```
 
-- 스토어는 `BackgroundClient`를 **의존성 주입** (스토어 팩토리 패턴)
-- 테스트에서 in-memory fake client 주입
-- 스토어 간 상태 동기화는 popup-entry에서 SW 이벤트 구독으로 처리
+- `BackgroundClient`는 **Jotai `Provider`를 통한 의존성 주입** 또는 아톰 팩토리로 주입 (테스트 분리 용이)
+- 테스트에서는 Provider로 in-memory fake client 주입
+- 그룹 간 상태 동기화는 popup-entry에서 SW 이벤트 구독 → `useSetAtom`으로 반영
 
 #### vanilla-extract 규약
 
@@ -1093,7 +1111,7 @@ export function validate(
 - `src/report/*` — 로직
 - (뷰어 모드 선택 시) `entrypoints/report/index.html` + `main.tsx` — WXT 진입점
 
-**스택**: React 19 + vanilla-extract (Zustand 미사용 — 읽기 전용 뷰)
+**스택**: React 19 + vanilla-extract (Jotai 미사용 — 읽기 전용 뷰)
 
 #### 포트 의존
 
@@ -1222,7 +1240,7 @@ export async function downloadReport(report: ValidationReport): Promise<void>; /
 ### 7.1. 필요 의존성 (M4 착수 시 추가)
 
 ```
-dependencies: react, react-dom, zustand, @vanilla-extract/css
+dependencies: react, react-dom, jotai, @vanilla-extract/css
 devDependencies: wxt, @wxt-dev/module-react,
                  @vanilla-extract/vite-plugin,
                  @types/react, @types/react-dom,
@@ -1292,7 +1310,7 @@ devDependencies: wxt, @wxt-dev/module-react,
 각 에이전트가 작업 시작 전 확인:
 
 - [ ] §3 공통 계약 정독 (특히 §3.5 명명/주석, §3.6 SOLID)
-- [ ] §4 기술 스택 확인 — 번들러는 **WXT** (Vite 직접 사용 금지), React/Zustand/vanilla-extract는 **M4/M8에만**
+- [ ] §4 기술 스택 확인 — 번들러는 **WXT** (Vite 직접 사용 금지), React/Jotai/vanilla-extract는 **M4/M8에만**
 - [ ] 엔트리포인트(`entrypoints/*`)에는 조립만, 비즈니스 로직은 `src/<module>/`
 - [ ] 자신이 맡은 §5 모듈 섹션 정독
 - [ ] 포트 먼저 정의 → 순수 로직 작성 → 어댑터 작성 순서
@@ -1301,7 +1319,7 @@ devDependencies: wxt, @wxt-dev/module-react,
 - [ ] 모든 주석 한국어
 - [ ] 단위 테스트: 순수 로직은 어댑터 없이, 어댑터는 각자 최소 1개
 - [ ] `chrome.*`/`fetch`/`indexedDB` 직접 사용은 `adapters/` 하위에만
-- [ ] Zustand 스토어/React hook 타입을 모듈 경계 밖으로 노출 금지
+- [ ] Jotai 아톰/React hook 타입을 모듈 경계 밖으로 노출 금지
 - [ ] 공개 API 시그니처에 라이브러리/런타임 타입 노출 금지
 - [ ] `npm run typecheck && npm test` 통과
 - [ ] 공통 계약(§3.2, §3.3) 변경 시 PR 설명에 영향 범위 명시
