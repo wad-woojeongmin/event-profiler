@@ -24,6 +24,11 @@ export async function signOut(): Promise<void> {
   return googleSheetsSource.signOut();
 }
 
+/** 캐시된 유효 토큰 유무 (silent 조회). UI가 팝업 재오픈 시 로그인 상태 복구용. */
+export async function hasCachedToken(): Promise<boolean> {
+  return googleSheetsSource.hasCachedToken();
+}
+
 /** 스펙 시트의 탭 목록을 반환한다. */
 export async function listSheetTabs(): Promise<SheetTab[]> {
   return googleSheetsSource.listTabs();

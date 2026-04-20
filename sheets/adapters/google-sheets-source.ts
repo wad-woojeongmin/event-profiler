@@ -86,6 +86,15 @@ export function createGoogleSheetsSource(
       await tokenProvider.getToken(true);
     },
 
+    async hasCachedToken(): Promise<boolean> {
+      try {
+        await tokenProvider.getToken(false);
+        return true;
+      } catch {
+        return false;
+      }
+    },
+
     async signOut(): Promise<void> {
       // `clearAllCachedAuthTokens`가 없는 폴리필 환경에서도 최소 1개 토큰은
       // 반드시 제거되도록, 캐시된 토큰을 먼저 명시적으로 폐기한다.

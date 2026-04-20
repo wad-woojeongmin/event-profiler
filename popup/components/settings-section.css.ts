@@ -63,6 +63,15 @@ export const primaryButton = style([
   },
 ]);
 
+export const successButton = style([
+  button,
+  {
+    borderColor: vars.color.success,
+    color: vars.color.success,
+    fontWeight: vars.font.weight.bold,
+  },
+]);
+
 export const errorText = style({
   fontSize: vars.font.size.xs,
   color: vars.color.danger,

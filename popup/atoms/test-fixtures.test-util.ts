@@ -16,6 +16,10 @@ export interface FakeBackgroundClient extends BackgroundClient {
   setSpecs(specs: EventSpec[]): void;
   /** `loadSpecs`가 throw할 에러를 세팅. 해제하려면 undefined 전달. */
   setLoadSpecsError(err: Error | undefined): void;
+  /** `authenticate`가 throw할 에러를 세팅. 해제하려면 undefined 전달. */
+  setAuthenticateError(err: Error | undefined): void;
+  /** `hasCachedToken`이 반환할 값을 세팅. 기본값 false. */
+  setHasCachedToken(value: boolean): void;
   /** 테스트가 커밋한 현재 세션 상태를 세팅한다(`startRecording` 후 pull 모의용). */
   setSessionState(state: RecordingSessionState): void;
   /** `getActiveTab` 반환값 세팅. 기본 `{id: 1, url: "https://www.catchtable.co.kr/"}`. */
@@ -34,6 +38,8 @@ export function createFakeBackgroundClient(): FakeBackgroundClient {
   const listeners = new Set<(state: RecordingSessionState) => void>();
   let specs: EventSpec[] = [];
   let loadError: Error | undefined;
+  let authenticateError: Error | undefined;
+  let hasCachedToken = false;
   let sessionState: RecordingSessionState = {
     session: null,
     capturedCount: 0,
@@ -59,6 +65,12 @@ export function createFakeBackgroundClient(): FakeBackgroundClient {
     },
     setLoadSpecsError(err) {
       loadError = err;
+    },
+    setAuthenticateError(err) {
+      authenticateError = err;
+    },
+    setHasCachedToken(value) {
+      hasCachedToken = value;
     },
     setSessionState(state) {
       sessionState = state;
@@ -95,9 +107,13 @@ export function createFakeBackgroundClient(): FakeBackgroundClient {
     },
     async authenticate() {
       calls.authenticate += 1;
+      if (authenticateError) throw authenticateError;
     },
     async signOut() {
       calls.signOut += 1;
+    },
+    async hasCachedToken() {
+      return hasCachedToken;
     },
   };
 }

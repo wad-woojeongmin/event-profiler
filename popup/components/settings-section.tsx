@@ -8,6 +8,7 @@ import { useAtomValue, useSetAtom } from "jotai";
 import { SPEC_SHEET_URL } from "@/sheets/constants.ts";
 
 import {
+  authStatusAtom,
   authenticateAtom,
   loadSpecsAtom,
   specsAtom,
@@ -17,14 +18,25 @@ import {
 
 import * as styles from "./settings-section.css.ts";
 
+const AUTH_BUTTON_LABEL = {
+  idle: "Google 로그인",
+  authenticating: "로그인 중…",
+  authenticated: "✓ 로그인됨",
+  failed: "Google 로그인 (재시도)",
+} as const;
+
 export function SettingsSection() {
   const loadState = useAtomValue(specsLoadStateAtom);
   const error = useAtomValue(specsErrorAtom);
   const specs = useAtomValue(specsAtom);
+  const authStatus = useAtomValue(authStatusAtom);
   const loadSpecs = useSetAtom(loadSpecsAtom);
   const authenticate = useSetAtom(authenticateAtom);
 
   const isLoading = loadState === "loading";
+  const isAuthenticating = authStatus === "authenticating";
+  const isAuthenticated = authStatus === "authenticated";
+  const authButtonClass = isAuthenticated ? styles.successButton : styles.button;
 
   return (
     <section className={styles.wrapper}>
@@ -47,17 +59,23 @@ export function SettingsSection() {
           {isLoading ? "불러오는 중…" : "스펙 불러오기"}
         </button>
         <button
-          className={styles.button}
-          disabled={isLoading}
+          className={authButtonClass}
+          disabled={isLoading || isAuthenticating}
           onClick={() => void authenticate()}
+          aria-live="polite"
         >
-          Google 로그인
+          {AUTH_BUTTON_LABEL[authStatus]}
         </button>
       </div>
 
       {loadState === "loaded" && (
-        <div className={styles.meta} role="status">
-          {specs.length}개 스펙 로드 완료
+        <div
+          className={specs.length === 0 ? styles.errorText : styles.meta}
+          role="status"
+        >
+          {specs.length === 0
+            ? "불러온 스펙이 없습니다. 시트 첫 탭이 비어있거나 스펙 형식과 일치하지 않습니다."
+            : `${specs.length}개 스펙 로드 완료`}
         </div>
       )}
       {error && (

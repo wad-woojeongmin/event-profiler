@@ -29,4 +29,10 @@ export interface SheetsSource {
   authenticate(): Promise<void>;
   /** 캐시된 모든 Google 토큰을 제거한다. */
   signOut(): Promise<void>;
+  /**
+   * 캐시된 유효 토큰이 있는지 silent로 확인한다. UI가 팝업 재오픈 시
+   * 로그인 상태를 복구할 때 사용한다. 네트워크 호출 없이 `interactive=false`
+   * 토큰 조회만 수행하므로 사용자에게 OAuth 창을 띄우지 않는다.
+   */
+  hasCachedToken(): Promise<boolean>;
 }
