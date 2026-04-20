@@ -30,10 +30,9 @@ export interface SheetsSource {
   /** 캐시된 모든 Google 토큰을 제거한다. */
   signOut(): Promise<void>;
   /**
-   * 캐시된 유효 토큰이 있는지 silent로 확인한다. UI가 팝업 재오픈 시
-   * 로그인 상태를 복구할 때 사용한다. `interactive=false` 조회이므로
-   * 사용자 상호작용(OAuth 창) 없이 끝나지만, 토큰 유효성 확인을 위해
-   * Google 서버에 요청이 나갈 수 있다.
+   * 캐시된 유효 토큰이 있는지 silent로 확인한다. 사용자 상호작용(OAuth 창)은
+   * 발생하지 않지만, 내부적으로 토큰 silent 갱신이 일어날 수 있어
+   * 완전히 동기적인 호출은 아니다. UI가 팝업 재오픈 시 로그인 상태 복구용.
    */
   hasCachedToken(): Promise<boolean>;
 }
