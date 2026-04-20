@@ -1,9 +1,8 @@
-// 스크린샷 캡처 디바운스 스케줄러.
+// 스크린샷 캡처 디바운스 스케줄러(순수 로직).
 //
-// `captureVisibleTab`은 Chrome에서 초당 2회 정도의 레이트 리밋이 있어, 짧은
-// 간격의 이벤트가 연속해서 발생하면 캡처 자체를 건너뛰고 직전 스크린샷 id를
-// 재사용해야 한다. 이 유틸은 그 결정 로직을 순수 함수 형태로 분리하여
-// IndexedDB·browser API 없이도 단위 테스트가 가능하게 한다.
+// `captureVisibleTab`은 Chrome에서 초당 ~2회 레이트 리밋을 가지므로 연속 이벤트는
+// 캡처를 건너뛰고 직전 screenshotId를 재사용해야 한다. 결정 로직을 포트 뒤로
+// 분리해 browser API 없이 단위 테스트가 가능하다.
 
 import type { ScreenshotCapture } from "./ports/screenshot-capture.ts";
 import type { ScreenshotWriter } from "./ports/screenshot-store.ts";
@@ -14,23 +13,25 @@ export const SCREENSHOT_DEBOUNCE_MS = 500;
 export interface ScreenshotSchedulerDeps {
   capture: ScreenshotCapture;
   writer: ScreenshotWriter;
-  /** 저장 키 생성기. 기본은 `crypto.randomUUID`. */
+  /** 저장 키 생성기. 기본 `crypto.randomUUID`. */
   uuid?: () => string;
-  /** 디바운스 창을 테스트에서 조정하고 싶을 때 override. */
+  /** 디바운스 창 override. 테스트 전용. */
   debounceMs?: number;
 }
 
 export interface ScreenshotScheduler {
   /**
-   * 현재 이벤트에 할당할 screenshotId를 반환한다.
+   * 이벤트에 부여할 `screenshotId`를 계산한다.
    *
-   * - 마지막 캡처로부터 debounceMs 이내면 실제 캡처를 생략하고 이전 id 반환.
-   *   (최초 호출이거나 이전 id가 없으면 debounce를 무시하고 새로 시도)
-   * - 캡처가 실패(null)하면 이전 id 그대로 재사용. 최초부터 실패한 경우
-   *   `undefined`를 반환하여 이벤트 자체는 저장되지만 스크린샷 없이 남는다.
+   * 동작 규칙:
+   * - 이전 id가 있고 `now - lastCaptureAt < debounceMs`면 캡처를 건너뛰고
+   *   이전 id 반환(저장 1회, 참조 N회).
+   * - 캡처가 `null`을 돌려주면 이전 id 그대로 재사용. 최초 시도부터 실패하면
+   *   `undefined`를 반환 — 이벤트는 저장되지만 스크린샷 링크는 없다.
+   * - 성공 시 `uuid()`로 새 id를 발급하고 Writer에 저장한 뒤 반환.
    */
   scheduleFor(tabId: number, now: number): Promise<string | undefined>;
-  /** 세션 경계에서 상태 초기화. */
+  /** 내부 상태(`lastCaptureAt`, `lastId`) 초기화. 세션 경계에서 호출. */
   reset(): void;
 }
 

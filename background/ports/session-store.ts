@@ -1,14 +1,17 @@
-// 현재 녹화 세션의 영속 상태 포트.
+// 녹화 세션의 영속 상태 포트.
 //
-// 실제 저장소는 `wxt/storage`의 `session:*` 영역이지만 포트 외부에는 도메인
-// 타입(`RecordingSession`)만 노출한다. SW가 재시작되어도 `session` 영역은
-// 살아있으므로 복구 지점은 이 포트를 통해 재로딩된다.
+// 어댑터는 `wxt/storage`의 `session:*` 영역을 쓰지만 외부에는 `RecordingSession`만
+// 노출. SW가 idle→깨어날 때 이 포트를 읽어 상태를 복구한다(윈도우가 열려 있는
+// 동안 session 영역은 유지됨).
 
 import type { RecordingSession } from "@/types/event.ts";
 
 export interface SessionStore {
-  /** 현재 진행 중이거나 최근에 종료된 세션. 없으면 null. */
+  /** @returns 진행 중이거나 최근 종료된 세션 1건. 없으면 null. */
   getRecording(): Promise<RecordingSession | null>;
-  /** null을 주면 세션 해제. */
+  /**
+   * 세션을 덮어쓴다. `null`을 넘기면 해제(storage에서 키 제거).
+   * `endedAt`이 설정된 상태로 저장해 두면 복구 시 종료된 세션으로 인식된다.
+   */
   setRecording(session: RecordingSession | null): Promise<void>;
 }

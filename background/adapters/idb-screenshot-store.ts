@@ -1,4 +1,6 @@
 // IndexedDB 기반 ScreenshotWriter/ScreenshotReader 어댑터.
+//
+// store의 keyPath가 `id`라 Blob을 그대로 넣으면 안 되고 `{id, blob}` 레코드로 감싼다.
 
 import type {
   ScreenshotReader,

@@ -1,7 +1,7 @@
 // 녹화 세션 상태 머신 단위 테스트.
 //
-// 포트의 in-memory fake만 주입해 I/O 없이 동작 검증. SCREENSHOT_DEBOUNCE_MS
-// 를 실제 값(500ms)으로 두고 clock을 수동 제어하여 디바운스 경계를 확인한다.
+// 포트는 in-memory fake만 주입 — I/O 없음. `SCREENSHOT_DEBOUNCE_MS`는 실제값
+// (500ms)을 유지하고 clock을 수동 주입해 디바운스 경계를 관찰한다.
 
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -84,7 +84,8 @@ function makeContext(options?: {
   let captureIdx = 0;
   const capture: ScreenshotCapture = {
     async capture(tabId) {
-      // `null`은 "캡처 실패"의 유효한 값이라 `??` 폴백을 쓰면 삼켜진다.
+      // `results[i]`가 의도적으로 `null`(실패 시나리오)일 수 있어 `??`로
+      // 폴백하면 실패 신호가 흡수된다. 명시적 길이 비교로 구분한다.
       const hasExplicit = captureIdx < results.length;
       const next = hasExplicit
         ? (results[captureIdx] as Blob | null)
@@ -149,7 +150,7 @@ describe("recording-session", () => {
   });
 
   it("녹화 시작 시 targetEventNames·tabId가 기록되고 기존 데이터는 비워진다", async () => {
-    // 이전 세션의 잔여 데이터를 흉내
+    // 이전 세션의 잔여 데이터를 흉내내고, startRecording이 이를 실제로 비우는지 확인.
     ctx.events.push({
       id: "old",
       provider: "amplitude",
@@ -235,7 +236,7 @@ describe("recording-session", () => {
 
     await controller.startRecording({ targetEventNames: ["a"], tabId: 1 });
 
-    // 각 호출 사이에 600ms씩 벌려 매번 새 스크린샷이 찍히게 한다.
+    // 각 호출 간격 600ms > 500ms 디바운스 창 → 매번 새 스크린샷.
     for (let i = 0; i < 10; i += 1) {
       ctx.clock.now += 600;
       await controller.captureEvent(makeEventPayload({ eventName: "a" }));

@@ -1,16 +1,15 @@
 // `browser.tabs.captureVisibleTab` 기반 ScreenshotCapture 어댑터.
 //
-// `captureVisibleTab`은 Chrome에서 초당 2회 레이트 리밋이 있다. 디바운스는
-// 스케줄러에서 이미 적용하지만, 리밋/권한 에러가 발생해도 캡처는 조용히
-// 실패하고 null을 돌려 호출자가 이전 screenshotId를 재사용하도록 한다.
+// 레이트 리밋(초당 ~2회)·권한 오류·탭 소실은 모두 `null` 반환으로 수렴. 호출자
+// (스크린샷 스케줄러)가 이전 id 재사용을 결정한다. 디바운스는 스케줄러 책임.
 
 import { browser } from "wxt/browser";
 
 import type { ScreenshotCapture } from "../ports/screenshot-capture.ts";
 
-/** 썸네일 최대 가로 폭(px). */
+/** 썸네일 최대 가로 폭(px). 세로는 비율 유지. */
 export const MAX_THUMBNAIL_WIDTH = 480;
-/** JPEG 품질(0~1). */
+/** JPEG 품질(0~1). 리포트 임베드 용량과 가독성의 절충값. */
 export const THUMBNAIL_QUALITY = 0.6;
 
 export function createTabScreenshotCapture(): ScreenshotCapture {
@@ -18,6 +17,7 @@ export function createTabScreenshotCapture(): ScreenshotCapture {
     async capture(tabId) {
       try {
         const tab = await browser.tabs.get(tabId);
+        // `windowId` 없음 = 팝아웃·탭 그룹 이동 등으로 소실. 캡처 불가.
         if (typeof tab.windowId !== "number") return null;
         const dataUrl = await browser.tabs.captureVisibleTab(tab.windowId, {
           format: "jpeg",
@@ -27,14 +27,14 @@ export function createTabScreenshotCapture(): ScreenshotCapture {
         const source = dataUrlToBlob(dataUrl);
         return await resizeJpeg(source);
       } catch {
-        // 레이트 리밋·권한·탭 소실 모두 동일하게 처리 — 호출자가 이전 id 재사용.
+        // 레이트 리밋·권한·탭 소실을 구분하지 않는다(호출자 처리가 동일).
         return null;
       }
     },
   };
 }
 
-/** `data:image/jpeg;base64,...` → Blob. SW/MV3에서도 동기 동작. */
+/** `data:image/jpeg;base64,...` 문자열을 Blob으로 변환(SW에서 `fetch(dataUrl)` 대신 수동 디코드). */
 function dataUrlToBlob(dataUrl: string): Blob {
   const comma = dataUrl.indexOf(",");
   if (comma < 0) throw new Error("invalid data URL");
@@ -47,7 +47,10 @@ function dataUrlToBlob(dataUrl: string): Blob {
   return new Blob([bytes], { type: mime });
 }
 
-/** OffscreenCanvas + createImageBitmap으로 가로 MAX_THUMBNAIL_WIDTH 이내 JPEG 변환. */
+/**
+ * `createImageBitmap` + OffscreenCanvas로 가로 `MAX_THUMBNAIL_WIDTH` 이내로 축소.
+ * @returns 변환 성공 시 JPEG Blob, canvas 컨텍스트를 못 얻으면 null.
+ */
 async function resizeJpeg(source: Blob): Promise<Blob | null> {
   const bitmap = await createImageBitmap(source);
   try {

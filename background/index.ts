@@ -1,7 +1,7 @@
 // M3 공개 API.
 //
-// 다른 모듈(popup·report)이 이 파일을 통해서만 접근. IndexedDB·wxt/storage·
-// browser API 등 내부 구현은 노출되지 않는다.
+// 타 모듈(M4 popup, M8 report, 엔트리포인트)은 이 파일만 import 한다. 구현
+// 상세(IndexedDB·wxt/storage·browser API)는 외부로 새지 않는다.
 
 export type {
   EventReader,

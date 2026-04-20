@@ -1,4 +1,7 @@
 // WxtSettingsStore 어댑터 통합 테스트.
+//
+// `local:` 영역도 WxtVitest가 fakeBrowser로 폴리필. `update`의 부분 머지와
+// specsCache의 null 기본값을 실구현으로 검증한다.
 
 import { beforeEach, describe, expect, it } from "vitest";
 import { fakeBrowser } from "wxt/testing";

@@ -1,8 +1,7 @@
-// 녹화 세션 상태 머신.
+// 녹화 세션 상태 머신(순수 로직).
 //
-// 이 파일은 포트(저장소·스크린샷)에만 의존하는 "순수 로직"이다. `browser.*`,
-// `wxt/storage`, IndexedDB를 직접 참조하지 않는다. 테스트는 in-memory fake
-// 포트를 주입하여 I/O 없이 수행한다.
+// 포트에만 의존하므로 `browser.*`·`wxt/storage`·IndexedDB 없이 in-memory fake로
+// 테스트한다. 런타임 의존을 추가하려면 어댑터/엔트리포인트로 옮겨야 한다.
 
 import type { CapturedEvent, RecordingSession } from "@/types/event.ts";
 import type { RecordingSessionState } from "@/types/messages.ts";
@@ -18,27 +17,33 @@ export interface RecordingSessionDeps {
   eventReader: EventReader;
   screenshotWriter: ScreenshotWriter;
   scheduler: ScreenshotScheduler;
-  /** 기본값은 `Date.now`. 테스트에서 고정 clock 주입. */
+  /** 테스트용 clock 주입. 기본 `Date.now`. */
   now?: () => number;
-  /** 기본값은 `crypto.randomUUID`. */
+  /** 테스트용 고정 id 생성기. 기본 `crypto.randomUUID`. */
   uuid?: () => string;
 }
 
 export interface RecordingSessionController {
-  /** 이전 세션이 있으면 clear 후 새 세션을 만든다. */
+  /** 기존 세션·이벤트·스크린샷을 모두 지우고 새 세션을 연다. */
   startRecording(input: {
     targetEventNames: string[];
     tabId: number;
   }): Promise<void>;
-  /** 이미 종료된 세션에 다시 호출하면 no-op. */
+  /** `endedAt`을 세팅해 녹화 종료. 세션이 없거나 이미 종료됐으면 no-op. */
   stopRecording(): Promise<void>;
-  /** 녹화 중이 아니면 drop. 녹화 중이면 uuid+screenshotId 부여 후 저장. */
+  /**
+   * 이벤트 1건을 수집한다.
+   *
+   * 녹화 중이 아니거나 이미 종료됐으면 조용히 drop(M2 컨텐츠 스크립트가 잔존
+   * 리스너를 다 끄지 못한 경우에도 안전). 수집 시 id·screenshotId를 부여해 저장하고
+   * `capturedCount`를 1 증가.
+   */
   captureEvent(event: Omit<CapturedEvent, "id" | "screenshotId">): Promise<void>;
-  /** Popup UI 복원용 스냅샷. */
+  /** 팝업 UI 복원용 스냅샷. 세션이 없으면 빈 스냅샷. */
   getState(): Promise<RecordingSessionState>;
-  /** 이벤트/스크린샷/세션 메타를 모두 비운다. */
+  /** 세션·이벤트·스크린샷·스케줄러 상태 전부 초기화. */
   clearSession(): Promise<void>;
-  /** 현재 세션의 이벤트 목록(세션 없으면 빈 배열). */
+  /** @returns 현재 세션의 이벤트 목록(timestamp 오름차순). 세션 없으면 빈 배열. */
   listCurrentEvents(): Promise<CapturedEvent[]>;
 }
 
@@ -48,8 +53,8 @@ export function createRecordingSession(
   const nowFn = deps.now ?? (() => Date.now());
   const uuidFn = deps.uuid ?? (() => crypto.randomUUID());
 
-  // 이벤트 수신이 비동기로 몰릴 때 `capturedCount` 업데이트가 겹쳐
-  // 집계가 누락되지 않도록 직렬화한다.
+  // captureEvent가 동시에 몰리면 `read-modify-write(capturedCount)` 레이스로
+  // 집계가 누락된다. FIFO promise-chain으로 직렬화해 순차 실행을 보장한다.
   let pending: Promise<unknown> = Promise.resolve();
   const enqueue = <T>(task: () => Promise<T>): Promise<T> => {
     const next = pending.then(task, task);

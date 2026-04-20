@@ -1,7 +1,7 @@
 // WxtSessionStore 어댑터 통합 테스트.
 //
-// WxtVitest 플러그인이 `browser.storage.session`을 fake-browser로 자동
-// 폴리필하므로 in-memory fake를 별도로 만들 필요가 없다(03-conventions §테스트).
+// `WxtVitest` 플러그인이 `browser.storage.session`을 fake-browser로 자동 폴리필하므로
+// 실제 어댑터를 그대로 돌린다(별도 in-memory fake 금지 — 03-conventions §테스트).
 
 import { beforeEach, describe, expect, it } from "vitest";
 import { fakeBrowser } from "wxt/testing";
