@@ -99,7 +99,7 @@
 
 1. 사용자가 팝업에서 시트 URL 입력 → **M5** OAuth로 Sheets API 호출 → CSV text → **M6 Spec Parser** → `EventSpec[]`
 2. 사용자가 녹화 시작 → **M2** Content Script가 `window.postMessage` 리스닝 활성화
-3. 웹앱에서 이벤트 발송 → **M1 ValidatorBridge**가 postMessage로 emit → **M2** → **M3** Background가 IndexedDB에 저장 + `chrome.tabs.captureVisibleTab` (디바운스 500ms) + 썸네일화
+3. 웹앱에서 이벤트 발송 → **M1 ValidatorBridge**가 postMessage로 emit → **M2** → **M3** Background가 IndexedDB에 저장 + `browser.tabs.captureVisibleTab` (디바운스 500ms) + 썸네일화
 4. 사용자가 녹화 종료 → **M7 Validator**가 수집 이벤트 × 스펙 매칭 → `ValidationResult[]`
 5. **M8 Report Generator**가 HTML 렌더 → 새 탭 or 파일 다운로드
 
@@ -109,102 +109,106 @@
 
 ### 3.1. 프로젝트 구조
 
-WXT 컨벤션에 따라 **빌드 타겟(`entrypoints/`)과 로직(`src/`)을 분리**합니다.
-`entrypoints/` 파일은 얇은 **조립 계층**이며, 실제 로직은 `src/<module>/`에 포트/어댑터 구조로 존재합니다.
+WXT 표준 레이아웃을 따릅니다. `srcDir`을 지정하지 않고 **모든 모듈 폴더는 프로젝트 루트**에 둡니다(`.claude/wxt-docs/guide/essentials/project-structure.md` 참고).
+`entrypoints/`는 WXT 빌드 타겟을 위한 **얇은 조립 계층**이며, 실제 로직은 루트의 모듈 폴더(`sheets/`, `background/`, …)에 포트/어댑터 구조로 둡니다.
 
 ```
-event-profiler/sun-valley/              (Chrome Extension 레포)
+event-profiler/                        (Chrome Extension 레포)
 ├── REQUIREMENTS.md                     (이 문서)
 ├── package.json                        (type=module, wxt + vitest)
-├── tsconfig.json
-├── wxt.config.ts                       (M4 담당 생성, manifest 선언 포함)
+├── tsconfig.json                       (strict + noUncheckedIndexedAccess)
+├── wxt.config.ts                       (manifest 선언 포함, srcDir 미지정)
+├── vitest.config.ts                    (WxtVitest 플러그인)
 ├── entrypoints/                        # WXT 빌드 타겟 — 얇은 조립만
 │   ├── background.ts                   # defineBackground — M3 조립
 │   ├── content.ts                      # defineContentScript — M2 조립
 │   └── popup/
 │       ├── index.html                  # React 마운트 포인트
 │       └── main.tsx                    # createRoot + 최상위 조립
-├── src/                                # 모든 실제 로직 (포트/어댑터)
-│   ├── types/                          # 모듈 간 공유 도메인 타입만
-│   │   ├── spec.ts                     ✅ 구현됨 (M6)
-│   │   ├── event.ts                    (M3 담당 생성)
-│   │   ├── validation.ts               (M7 담당 생성)
-│   │   └── messages.ts                 (M2 담당 생성)
-│   ├── sheets/                         # M5 + M6
-│   │   ├── index.ts                    # 공개 API re-export
-│   │   ├── ports/
-│   │   │   └── sheets-source.ts        # SheetsSource 인터페이스
-│   │   ├── adapters/
-│   │   │   └── google-sheets-source.ts # OAuth + Sheets API v4 구현
-│   │   ├── spec-parser.ts              ✅ 구현됨 (M6, 순수 로직)
-│   │   └── spec-parser.test.ts         ✅ 구현됨
-│   ├── content/                        # M2 — entrypoints/content.ts가 조립
-│   │   ├── index.ts
-│   │   ├── ports/
-│   │   │   ├── bridge-receiver.ts      # BridgeReceiver 인터페이스
-│   │   │   └── event-forwarder.ts      # EventForwarder 인터페이스
-│   │   └── adapters/
-│   │       ├── window-post-message-receiver.ts
-│   │       └── runtime-event-forwarder.ts
-│   ├── background/                     # M3 — entrypoints/background.ts가 조립
-│   │   ├── index.ts
-│   │   ├── ports/
-│   │   │   ├── event-store.ts
-│   │   │   ├── screenshot-store.ts
-│   │   │   ├── session-store.ts
-│   │   │   ├── settings-store.ts
-│   │   │   └── screenshot-capture.ts
-│   │   ├── adapters/
-│   │   │   ├── indexeddb-event-store.ts
-│   │   │   ├── indexeddb-screenshot-store.ts
-│   │   │   ├── chrome-session-store.ts
-│   │   │   ├── chrome-settings-store.ts
-│   │   │   └── chrome-tabs-screenshot-capture.ts
-│   │   └── recording-session.ts        # 세션 로직 (순수)
-│   ├── popup/                          # M4 — entrypoints/popup/main.tsx가 조립
-│   │   ├── app.tsx                     # 루트 컴포넌트
-│   │   ├── components/
-│   │   │   ├── spec-loader.tsx
-│   │   │   ├── event-checklist.tsx
-│   │   │   ├── recording-controls.tsx
-│   │   │   └── ...
-│   │   ├── atoms/                      # Jotai 아톰 그룹
-│   │   │   ├── recording-atoms.ts
-│   │   │   ├── specs-atoms.ts
-│   │   │   └── settings-atoms.ts
-│   │   ├── ports/
-│   │   │   └── background-client.ts    # SW와의 통신 추상화
-│   │   ├── adapters/
-│   │   │   └── runtime-background-client.ts
-│   │   ├── theme.css.ts                # vanilla-extract 전역 토큰
-│   │   └── styles/                     # *.css.ts 스타일 모듈
-│   ├── validator/                      # M7
-│   │   ├── index.ts
-│   │   ├── ports/
-│   │   │   └── validation-rule.ts      # 규칙 플러그인 인터페이스
-│   │   ├── rules/                      # 각 규칙 = 1 파일
-│   │   │   ├── missing-param-rule.ts
-│   │   │   ├── empty-param-rule.ts
-│   │   │   ├── not-collected-rule.ts
-│   │   │   └── suspect-duplicate-rule.ts
-│   │   └── validator.ts                # 규칙 실행기 (순수)
-│   └── report/                         # M8 — 별도 엔트리포인트로 노출 여부는 M8이 결정
-│       ├── index.ts
-│       ├── ports/
-│       │   └── screenshot-reader.ts
-│       ├── views/
-│       │   ├── report-view.tsx         # 루트 뷰
-│       │   ├── summary-dashboard.tsx
-│       │   ├── results-table.tsx
-│       │   ├── timeline-chart.tsx
-│       │   └── screenshot-gallery.tsx
-│       ├── render-to-html.tsx          # React → static HTML 문자열
-│       ├── download-report.ts          # self-contained HTML 파일 생성
-│       └── styles/*.css.ts
-└── scripts/
-    └── parse-smoke.ts                  ✅ 구현됨 (M6)
+├── types/                              # 모듈 간 공유 도메인 타입만
+│   ├── spec.ts                         ✅ 구현됨 (M6)
+│   ├── event.ts                        (M3 담당 생성)
+│   ├── validation.ts                   (M7 담당 생성)
+│   └── messages.ts                     (M2 담당 생성)
+├── sheets/                             # M5 + M6
+│   ├── index.ts                        # 공개 API re-export
+│   ├── ports/
+│   │   └── sheets-source.ts            # SheetsSource 인터페이스
+│   ├── adapters/
+│   │   └── google-sheets-source.ts     # OAuth + Sheets API v4 구현
+│   ├── spec-parser.ts                  ✅ 구현됨 (M6, 순수 로직)
+│   └── spec-parser.test.ts             ✅ 구현됨
+├── content/                            # M2 — entrypoints/content.ts가 조립
+│   ├── index.ts
+│   ├── ports/
+│   │   ├── bridge-receiver.ts          # BridgeReceiver 인터페이스 (ctx 주입)
+│   │   └── event-forwarder.ts          # EventForwarder 인터페이스
+│   └── adapters/
+│       ├── window-post-message-receiver.ts
+│       └── runtime-event-forwarder.ts
+├── background/                         # M3 — entrypoints/background.ts가 조립
+│   ├── index.ts
+│   ├── ports/
+│   │   ├── event-store.ts
+│   │   ├── screenshot-store.ts
+│   │   ├── session-store.ts
+│   │   ├── settings-store.ts
+│   │   └── screenshot-capture.ts
+│   ├── adapters/
+│   │   ├── indexeddb-event-store.ts
+│   │   ├── indexeddb-screenshot-store.ts
+│   │   ├── wxt-storage-session-store.ts   # wxt/storage.defineItem 래핑
+│   │   ├── wxt-storage-settings-store.ts  # wxt/storage.defineItem 래핑
+│   │   └── browser-tabs-screenshot-capture.ts
+│   └── recording-session.ts            # 세션 로직 (순수)
+├── popup/                              # M4 — entrypoints/popup/main.tsx가 조립
+│   ├── app.tsx                         # 루트 컴포넌트
+│   ├── components/
+│   │   ├── spec-loader.tsx
+│   │   ├── event-checklist.tsx
+│   │   ├── recording-controls.tsx
+│   │   └── ...
+│   ├── atoms/                          # Jotai 아톰 그룹
+│   │   ├── recording-atoms.ts
+│   │   ├── specs-atoms.ts
+│   │   └── settings-atoms.ts
+│   ├── ports/
+│   │   └── background-client.ts        # SW와의 통신 추상화
+│   ├── adapters/
+│   │   └── messaging-background-client.ts  # @webext-core/messaging 기반
+│   ├── theme.css.ts                    # vanilla-extract 전역 토큰
+│   └── styles/                         # *.css.ts 스타일 모듈
+├── messaging/                          # 확장 전역 메시징 정의
+│   └── extension-messaging.ts          # defineExtensionMessaging() 공용 인스턴스
+├── validator/                          # M7
+│   ├── index.ts
+│   ├── ports/
+│   │   └── validation-rule.ts          # 규칙 플러그인 인터페이스
+│   ├── rules/                          # 각 규칙 = 1 파일
+│   │   ├── missing-param-rule.ts
+│   │   ├── empty-param-rule.ts
+│   │   ├── not-collected-rule.ts
+│   │   └── suspect-duplicate-rule.ts
+│   └── validator.ts                    # 규칙 실행기 (순수)
+└── report/                             # M8 — 별도 엔트리포인트로 노출 여부는 M8이 결정
+    ├── index.ts
+    ├── ports/
+    │   └── screenshot-reader.ts
+    ├── views/
+    │   ├── report-view.tsx             # 루트 뷰
+    │   ├── summary-dashboard.tsx
+    │   ├── results-table.tsx
+    │   ├── timeline-chart.tsx
+    │   └── screenshot-gallery.tsx
+    ├── render-to-html.tsx              # React → static HTML 문자열
+    ├── download-report.ts              # self-contained HTML 파일 생성
+    └── styles/*.css.ts
 ```
 
+> **경로 컨벤션**: `srcDir` 미지정이므로 모든 import는 루트 기준. WXT 기본 alias는 `@/*` → 프로젝트 루트. 예: `import { EventSpec } from '@/types/spec'`. `src/` 폴더는 사용하지 않음.
+>
+> **auto-imports**: WXT는 기본적으로 `components/`·`composables/`·`hooks/`·`utils/`를 auto-import 대상으로 등록(`.claude/wxt-docs/guide/essentials/config/auto-imports.md` 참고). 본 프로젝트는 모듈 경계의 명시성을 위해 **auto-import에 의존하지 않음** — 공유 심볼은 반드시 명시 import.
+>
 > **리포트 뷰어 엔트리포인트**: 새 탭에서 여는 방식이면 `entrypoints/report/index.html` + `main.tsx`를 추가. 다운로드 전용이면 SW에서 직접 `renderToString`으로 HTML 생성 후 downloads API로 저장 (엔트리포인트 불필요). M8 구현 시 결정.
 
 별도 레포:
@@ -215,7 +219,7 @@ event-profiler/sun-valley/              (Chrome Extension 레포)
 
 다음 타입은 **공개 계약**이며 다른 모듈에서 import됨. 변경은 영향 받는 모듈 모두 협의 필요.
 
-#### `src/types/spec.ts` ✅ 구현 완료
+#### `types/spec.ts` ✅ 구현 완료
 
 ```typescript
 export type EventType =
@@ -245,7 +249,7 @@ export interface EventSpec {
 }
 ```
 
-#### `src/types/event.ts` (M3 담당)
+#### `types/event.ts` (M3 담당)
 
 ```typescript
 export interface CapturedEvent {
@@ -270,7 +274,7 @@ export interface RecordingSession {
 }
 ```
 
-#### `src/types/validation.ts` (M7 담당)
+#### `types/validation.ts` (M7 담당)
 
 ```typescript
 export type Severity = "error" | "warning" | "info";
@@ -314,7 +318,7 @@ export interface ValidationReport {
 }
 ```
 
-#### `src/types/messages.ts` (M2 담당)
+#### `types/messages.ts` (M2 담당)
 
 ```typescript
 // webapp → content script (window.postMessage)
@@ -329,39 +333,57 @@ export interface BridgeMessage {
   };
 }
 
-// content script ↔ background (chrome.runtime.sendMessage)
-export type ExtensionMessage =
-  | { type: "CAPTURE_EVENT"; event: Omit<CapturedEvent, "id" | "screenshotId"> }
-  | { type: "START_RECORDING"; targetEventNames: string[]; tabId: number }
-  | { type: "STOP_RECORDING" }
-  | { type: "GET_SESSION_STATE" }
-  | { type: "GENERATE_REPORT" };
+// content script ↔ background — @webext-core/messaging ProtocolMap
+export interface ExtensionProtocol {
+  captureEvent(
+    event: Omit<CapturedEvent, "id" | "screenshotId">,
+  ): void; // fire-and-forget, return type void
+  startRecording(input: {
+    targetEventNames: string[];
+    tabId: number;
+  }): void;
+  stopRecording(): void;
+  getSessionState(): RecordingSessionState;
+  generateReport(): void;
+}
+
+export interface RecordingSessionState {
+  session: RecordingSession | null;
+  capturedCount: number;
+  targetEventNames: string[];
+}
 ```
 
 ### 3.3. 메시지 프로토콜
 
 #### 웹앱 → Content Script
 
-- 채널: `window.postMessage(msg, location.origin)`
+- 채널: `window.postMessage(msg, location.origin)` (vanilla DOM API — 확장과 웹페이지 경계)
 - **반드시 `source === 'catchtable-event-validator'` 체크**로 다른 라이브러리의 postMessage와 구분
 - Content Script는 `event.origin === location.origin`도 검증 (cross-origin 스푸핑 방어)
+- 리스너는 **`ctx.addEventListener(window, 'message', ...)`**로 등록하여 확장 컨텍스트 무효화 시 자동 정리 (§5 M2 참고)
 
-#### Content Script → Background
+#### Content Script ↔ Background
 
-- 채널: `chrome.runtime.sendMessage`
-- `type` 필드로 유니온 디스크리미네이트
+- **라이브러리**: [`@webext-core/messaging`](https://webext-core.aklinker1.io/messaging/) 사용 (WXT 공식 권장 옵션 중 하나 — `.claude/wxt-docs/guide/essentials/messaging.md`).
+  - 타입 안전 ProtocolMap 선언 → `sendMessage('captureEvent', payload)` / `onMessage('captureEvent', handler)` 형태로 호출.
+  - vanilla `browser.runtime.sendMessage`/`onMessage`는 **어댑터 내부에서도 직접 사용 금지** — 메시징 라이브러리가 얇은 추상화 역할.
+- 공용 인스턴스: `messaging/extension-messaging.ts`에서 `defineExtensionMessaging<ExtensionProtocol>()`의 결과(`sendMessage`, `onMessage`)를 export하여 background/content/popup에서 공유.
+- 발신자 식별이 필요하면 두 번째 인자(`sender: Browser.runtime.MessageSender`) 활용.
 
 ### 3.4. 스토리지 레이아웃
 
-| 저장소                   | 키/Store                     | 용도                                   | 크기 가이드    |
-| ------------------------ | ---------------------------- | -------------------------------------- | -------------- |
-| `chrome.storage.local`   | `settings`                   | 시트 URL, 최근 선택 이벤트, OAuth 설정 | <50KB          |
-| `chrome.storage.local`   | `specsCache`                 | 마지막으로 불러온 `EventSpec[]`        | <500KB         |
-| `chrome.storage.session` | `recordingState`             | 현재 녹화 세션 상태 (SW 재시작 대비)   | <10KB          |
-| IndexedDB `events`       | `CapturedEvent` 전체         | 이벤트 로그                            | 세션당 수백 건 |
-| IndexedDB `screenshots`  | `{ id: string, blob: Blob }` | 썸네일(JPEG)                           | 장당 수십 KB   |
+| 저장소                      | 키/Store                     | 용도                                   | 크기 가이드    |
+| --------------------------- | ---------------------------- | -------------------------------------- | -------------- |
+| `wxt/storage` `local:*`     | `local:settings`             | 시트 URL, 최근 선택 이벤트, OAuth 설정 | <50KB          |
+| `wxt/storage` `local:*`     | `local:specsCache`           | 마지막으로 불러온 `EventSpec[]`        | <500KB         |
+| `wxt/storage` `session:*`   | `session:recordingState`     | 현재 녹화 세션 상태 (SW 재시작 대비)   | <10KB          |
+| IndexedDB `events`          | `CapturedEvent` 전체         | 이벤트 로그                            | 세션당 수백 건 |
+| IndexedDB `screenshots`     | `{ id: string, blob: Blob }` | 썸네일(JPEG)                           | 장당 수십 KB   |
 
-**세션 경계**: 새 녹화 시작 시 `events`/`screenshots` store를 clear. 이전 세션은 리포트 생성 후 파기(Phase 1). Phase 2에서 세션 히스토리 도입.
+- `chrome.storage.*`/`browser.storage.*`를 직접 사용하지 말고 **`wxt/storage`의 `storage.defineItem<T>('local:key')` 패턴 사용** (`.claude/wxt-docs/storage.md`). 타입 안전 + 기본값 + 마이그레이션 지원.
+- IndexedDB는 `wxt/storage` 범위 밖 → 어댑터에서 직접 사용하되, 포트는 여전히 도메인 타입만 노출 (§3.6 철칙 1).
+- **세션 경계**: 새 녹화 시작 시 `events`/`screenshots` store를 clear. 이전 세션은 리포트 생성 후 파기(Phase 1). Phase 2에서 세션 히스토리 도입.
 
 ### 3.5. 네이밍 & 주석 규칙
 
@@ -370,7 +392,7 @@ export type ExtensionMessage =
 - 예: `spec-parser.ts`, `service-worker.ts`, `background/screenshot-capture.ts`
 - React 컴포넌트 파일도 kebab-case: `spec-loader.tsx` (export된 컴포넌트 이름은 `SpecLoader`)
 - vanilla-extract 스타일 파일: `*.css.ts` (예: `theme.css.ts`, `recording-controls.css.ts`)
-- 폴더도 동일: `src/sheets/`, `src/background/` (단, 의미상 한 단어면 소문자 단일 토큰)
+- 폴더도 동일: `sheets/`, `background/` (단, 의미상 한 단어면 소문자 단일 토큰)
 - 금지: `specParser.ts`, `SpecParser.ts`, `SpecLoader.tsx`, `SpecParser/`
 
 **코드 식별자**
@@ -394,17 +416,17 @@ export type ExtensionMessage =
 
 - 모듈의 public API 시그니처에 특정 라이브러리/런타임/엔진 타입이 **노출되면 안 됨**.
 - 예) M5 Sheets 모듈은 `gapi.client.sheets.Spreadsheet`를 반환하지 않고 우리 도메인 타입(`SheetTab`, `EventSpec`)을 반환.
-- 예) M3 Storage 모듈은 `IDBDatabase`/`chrome.storage.StorageArea`를 반환하지 않고 Promise + 도메인 타입만.
+- 예) M3 Storage 모듈은 `IDBDatabase`/`Browser.storage.StorageArea`/`wxt/storage`의 `WxtStorageItem`을 반환하지 않고 Promise + 도메인 타입만.
 - 예) M2 Content Script 측은 `MessageEvent` 원본을 M3로 넘기지 않음. 정규화된 `BridgeMessage` 페이로드만.
 
 #### 철칙 2. DIP — 추상에 의존, 구현체는 주입
 
-각 모듈은 **포트(인터페이스)를 선언**하고, 구체 어댑터(IndexedDB/chrome.storage/fetch)는 **주입**받음. 테스트는 in-memory fake로 실행.
+각 모듈은 **포트(인터페이스)를 선언**하고, 구체 어댑터(IndexedDB/`wxt/storage`/`fetch`/`@webext-core/messaging`)는 **주입**받음. 테스트는 `WxtVitest` + `fakeBrowser`로 실구현을 그대로 실행하거나, WXT 폴리필 범위 밖 포트(IDB·네트워크)는 in-memory fake를 주입.
 
 예시 — 스토리지 포트 (M3가 소유):
 
 ```typescript
-// src/background/ports/event-store.ts
+// background/ports/event-store.ts
 export interface EventStore {
   add(event: CapturedEvent): Promise<void>;
   listBySession(sessionId: string): Promise<CapturedEvent[]>;
@@ -412,13 +434,13 @@ export interface EventStore {
 }
 ```
 
-- 구현체 1: `src/background/adapters/indexeddb-event-store.ts` (프로덕션)
-- 구현체 2: `src/background/adapters/in-memory-event-store.ts` (테스트)
+- 구현체 1: `background/adapters/indexeddb-event-store.ts` (프로덕션)
+- 구현체 2: `background/adapters/in-memory-event-store.ts` (테스트)
 
 예시 — 이벤트 소스 포트 (M2가 소유):
 
 ```typescript
-// src/content/ports/bridge-receiver.ts
+// content/ports/bridge-receiver.ts
 export interface BridgeReceiver {
   onMessage(handler: (msg: BridgeMessage) => void): () => void; // returns unsubscribe
 }
@@ -430,7 +452,7 @@ export interface BridgeReceiver {
 예시 — 인증/시트 포트 (M5가 소유):
 
 ```typescript
-// src/sheets/ports/sheets-source.ts
+// sheets/ports/sheets-source.ts
 export interface SheetsSource {
   listTabs(spreadsheetId: string): Promise<SheetTab[]>;
   fetchAsCsv(spreadsheetId: string, sheetTitle: string): Promise<string>;
@@ -456,7 +478,7 @@ export interface SheetsSource {
 - M7의 검증 규칙은 **규칙 배열**로 주입. 새 규칙 추가 시 기존 코드 수정 없이 추가.
 
 ```typescript
-// src/validator/ports/validation-rule.ts
+// validator/ports/validation-rule.ts
 export interface ValidationRule {
   readonly code: IssueType;
   evaluate(ctx: ValidationContext): ValidationIssue[];
@@ -465,20 +487,21 @@ export interface ValidationRule {
 
 #### 철칙 6. 경계 타입은 공통 타입 모듈에
 
-- 모듈 간 공유되는 타입(`CapturedEvent`, `EventSpec`, `BridgeMessage`)은 `src/types/`에만 정의.
+- 모듈 간 공유되는 타입(`CapturedEvent`, `EventSpec`, `BridgeMessage`)은 `types/`에만 정의.
 - 모듈 고유 타입(구현 디테일)은 해당 모듈 내에 숨김.
 
 #### 철칙 7. 부작용 격리
 
 - 순수 로직(파서, 검증, 매칭)은 I/O 없이 단위 테스트 가능해야 함.
-- `chrome.*`, `fetch`, `indexedDB` 호출은 어댑터 계층에만.
+- `browser.*`(WXT 통합 API — 뒤의 §4.2 참고), `fetch`, `indexedDB`, `window.*` 호출은 어댑터 계층에만.
+- 확장 API는 **`chrome.*`/`browser` 전역을 직접 참조하지 말고 `wxt/browser`에서 import**(`import { browser } from 'wxt/browser'`). 이렇게 해야 Firefox/Safari로의 확장 시에도 어댑터 수정 없이 동작.
 
 #### 디렉토리 규약 (포트 & 어댑터)
 
 각 모듈 내:
 
 ```
-src/<module>/
+<module>/
 ├── index.ts            # 이 모듈의 공개 API만 re-export
 ├── ports/              # 이 모듈이 소유/요구하는 인터페이스
 ├── adapters/           # 포트의 구현체 (환경별)
@@ -488,9 +511,19 @@ src/<module>/
 
 #### 테스트 지침
 
-- **순수 로직**: 어댑터 없이 직접 테스트
-- **어댑터**: 각 어댑터 최소 1개 contract test
-- **통합**: in-memory 어댑터로 모듈 조립 후 end-to-end
+- **Vitest + `WxtVitest` 플러그인** 사용 (`vitest.config.ts`에 이미 설정). 이 플러그인이 해주는 일:
+  - `browser.*`를 `@webext-core/fake-browser`의 in-memory 구현으로 폴리필 → **`browser.storage`/`browser.runtime` 등은 별도 목업 없이 사용 가능**
+  - `import.meta.env.BROWSER` 등 WXT 런타임 상수 주입
+  - `@/*` 같은 alias 해석
+  - 자세한 내용: `.claude/wxt-docs/guide/essentials/unit-testing.md`
+- **순수 로직**: 어댑터 없이 직접 테스트.
+- **어댑터 중 `browser.*`/`wxt/storage` 사용분**: 별도 in-memory fake를 만들지 말고 `fakeBrowser.reset()`으로 상태 초기화만 해서 실구현을 그대로 테스트.
+  ```ts
+  import { fakeBrowser } from "wxt/testing/fake-browser";
+  beforeEach(() => fakeBrowser.reset());
+  ```
+- **어댑터 중 IndexedDB/네트워크 등 WXT 폴리필 밖 영역**: 포트 단위 in-memory fake를 직접 작성해 순수 로직 테스트에 주입.
+- **통합**: 실제 어댑터 + `fakeBrowser`로 모듈 조립하여 end-to-end.
 
 ---
 
@@ -508,8 +541,9 @@ src/<module>/
 | 스타일            | **vanilla-extract** (`@vanilla-extract/css` + vite 플러그인)   | 타입 안전한 CSS-in-TS, zero-runtime                                       |
 | 테스트            | Vitest (+ `@testing-library/react` for UI)                     | Vite 일관성                                                               |
 | CSV 파서          | `papaparse`                                                    | 멀티라인 셀 처리 견고                                                     |
-| Sheets 인증       | `chrome.identity.getAuthToken` (OAuth2)                        | Service Account 보안 문제 회피                                            |
-| 스토리지          | IndexedDB (이미지) + chrome.storage (메타)                     | 서버 불필요, 용량 충분                                                    |
+| Sheets 인증       | `browser.identity.getAuthToken` (OAuth2, `wxt/browser` 경유)   | Service Account 보안 문제 회피                                            |
+| 스토리지          | IndexedDB (이미지) + `wxt/storage` (메타)                      | `wxt/storage.defineItem` 타입 안전, 서버 불필요                           |
+| 메시징            | `@webext-core/messaging` (typed ProtocolMap)                   | WXT 공식 권장, vanilla runtime 메시징의 pain point 해소                   |
 | 이미지 리사이즈   | Squoosh (wasm) 또는 `createImageBitmap` + Canvas               | 썸네일 용량 최소화                                                        |
 | 리포트            | React로 HTML 문자열 렌더 → self-contained HTML (base64 인라인) | 단일 파일 공유                                                            |
 | 차트              | SVG (React) + vanilla-extract                                  | 외부 차트 라이브러리 의존 없음                                            |
@@ -530,15 +564,23 @@ src/<module>/
 
 - **엔트리포인트**: `entrypoints/` 하위 파일이 빌드 타겟 (background/content/popup 등)
   - `entrypoints/background.ts` — `defineBackground(() => { ... })`
-  - `entrypoints/content.ts` — `defineContentScript({ matches, main: () => { ... } })`
+  - `entrypoints/content.ts` — `defineContentScript({ matches, main: (ctx) => { ... } })` (ctx 활용은 §5 M2 참고)
   - `entrypoints/popup/index.html` + `entrypoints/popup/main.tsx` — React 마운트
-- **엔트리포인트는 얇은 조립 계층만**: 포트 어댑터를 주입하고 `src/` 하위 모듈의 로직을 호출. 엔트리포인트 파일에 비즈니스 로직 작성 금지 (SRP).
-- **manifest**: `wxt.config.ts`의 `manifest` 필드로 정적 값(key, oauth2, permissions, host_permissions) 기재. WXT가 엔트리포인트를 스캔해 background/content_scripts/action 블록을 자동 생성.
+- **엔트리포인트는 얇은 조립 계층만**: 포트 어댑터를 주입하고 루트 모듈 폴더의 로직을 호출. 엔트리포인트 파일에 비즈니스 로직 작성 금지 (SRP).
+- ⚠️ **엔트리포인트 런타임 코드 제약 (Critical)**: WXT는 빌드 시 엔트리포인트 파일을 **NodeJS 환경에서도 import**하여 manifest 옵션을 추출함(`.claude/wxt-docs/guide/essentials/entrypoints.md:210-225`, `extension-apis.md:101-158`). 따라서:
+  - `browser.*`, `window.*`, `document.*`, `chrome.*` 등 **모든 런타임 API 호출은 `defineBackground`/`defineContentScript`의 콜백(`main`) 안에만** 배치해야 함.
+  - 모듈 최상위(top-level)에서 이들을 호출하면 `✖ Browser.*.addListener not implemented` 류 빌드 에러 발생.
+  - import 자체는 top-level에서 해도 무방(사이드이펙트 없는 순수 심볼 한정).
+- **API 네임스페이스 통일**: 모든 확장 API는 `import { browser } from 'wxt/browser'`로 통일. `chrome.*` 직접 참조 금지. 타입은 `import { type Browser } from 'wxt/browser'`.
+- **manifest**: `wxt.config.ts`의 `manifest` 필드로 정적 값(key, oauth2, permissions, host_permissions) 기재. WXT가 엔트리포인트를 스캔해 background/content_scripts/action 블록을 자동 생성. 루트에 `manifest.json`을 두지 않음 (WXT가 `.output/<target>/manifest.json` 자동 생성).
 - **React**: `@wxt-dev/module-react` 모듈 사용
-- **기존 `manifest.json` 마이그레이션**: `manifest.json`의 `key`, `oauth2`, `permissions`, `host_permissions` 값을 `wxt.config.ts`로 이전하고 기존 파일은 제거 (WXT가 `.output/chrome-mv3/manifest.json` 자동 생성).
 - dev: `npm run dev` — WXT HMR + 자동 리로드. 익스텐션은 `.output/chrome-mv3/`에서 로드
 - prod: `npm run build` → `.output/chrome-mv3/`, `npm run zip`으로 패키징
-- **브라우저 타겟**: 현재는 Chrome(MV3)만. Firefox/Safari 타겟 추가 시 `wxt.config.ts`의 targets 옵션으로 확장 가능
+- **브라우저 타겟 — Phase 1 결정**:
+  - **Chrome(MV3)이 공식 지원 대상**. 기능 검증/수용 기준은 Chrome 기준으로 측정.
+  - Firefox 빌드 파이프라인은 `package.json`의 `dev:firefox`/`build:firefox`/`zip:firefox` 스크립트로 스캐폴드되어 있으나, **동작 보증 범위 밖**(best-effort). Firefox-specific 이슈는 Phase 2에서 검토.
+  - Safari는 Phase 3+.
+  - 이 정책 덕분에 API 네임스페이스는 애초에 `browser.*`로 작성해도 무방하며, 오히려 그렇게 해야 향후 타겟 확장이 싸짐.
 
 ---
 
@@ -598,15 +640,21 @@ src/<module>/
 **파일**:
 
 - `entrypoints/content.ts` — `defineContentScript({ matches, main })` 조립 진입점
-- `src/content/ports/*`, `src/content/adapters/*` — 로직
+- `content/ports/*`, `content/adapters/*` — 로직
 
 #### 포트 정의 (변경은 M3와 협의)
 
 ```typescript
+import type { ContentScriptContext } from "wxt/utils/content-script-context";
+
 // ports/bridge-receiver.ts
 export interface BridgeReceiver {
-  /** 메시지 수신 시작. 반환된 함수 호출로 구독 해제 */
-  subscribe(handler: (msg: BridgeMessage) => void): () => void;
+  /** 메시지 수신 시작. ctx에 바인딩하여 확장 컨텍스트 무효화 시 자동 정리.
+   *  반환된 함수 호출로 수동 구독 해제도 가능. */
+  subscribe(
+    ctx: ContentScriptContext,
+    handler: (msg: BridgeMessage) => void,
+  ): () => void;
 }
 
 // ports/event-forwarder.ts
@@ -615,29 +663,34 @@ export interface EventForwarder {
 }
 ```
 
+> `ContentScriptContext`는 WXT 런타임 타입이지만 **컨텍스트 무효화 처리라는 구체적 책임을 가지므로 포트에 노출하는 것이 정당** (§3.6 철칙 1의 예외). 해당 타입은 `wxt/utils/content-script-context`에서 re-export됨.
+
 #### 책임
 
 웹앱 측 ValidatorBridge의 메시지를 수신하여 background로 정규화된 이벤트로 전달.
-**내부에서 사용하는 `MessageEvent`/`chrome.runtime`은 절대 공개 API에 노출하지 말 것.**
+**내부에서 사용하는 `MessageEvent`/메시징 라이브러리 내부 구현은 절대 공개 API에 노출하지 말 것.**
 
 #### 요구사항
 
-1. `manifest.json`의 `content_scripts`에 `matches` 지정 (CatchTable 도메인 — 정확한 host 목록은 M4가 설정 UI로 관리, 초기값은 `https://*.catchtable.co.kr/*`).
-2. `document_start`에서 등록.
-3. `window.addEventListener('message', ...)` 리스너 설치:
+1. `defineContentScript`의 `matches` 옵션으로 지정 (CatchTable 도메인 — 정확한 host 목록은 M4가 설정 UI로 관리, 초기값은 `https://*.catchtable.co.kr/*`). WXT가 이 값을 스캔해 manifest `content_scripts` 블록에 자동 주입.
+2. `runAt: 'document_start'`에서 등록.
+3. **반드시 `main(ctx)`의 `ctx.addEventListener(window, 'message', handler)`** 로 리스너 설치 — 확장 컨텍스트 무효화(재설치/업데이트/비활성화) 시 WXT가 자동 정리(`.claude/wxt-docs/guide/essentials/content-scripts.md:10-46`).
    - `event.origin === location.origin` 검증
    - `event.data?.source === 'catchtable-event-validator'` 검증
    - `version === 1` 검증 (호환성)
-4. 수신 메시지를 `chrome.runtime.sendMessage({ type: 'CAPTURE_EVENT', event: {...} })`로 포워딩. `tabId`, `pageUrl`, `pageTitle`는 이 시점에 채워서 보냄.
+   - `vanilla window.addEventListener` 직접 사용 금지.
+4. 수신 메시지를 `@webext-core/messaging`의 `sendMessage('captureEvent', { ... })`로 포워딩. `tabId`, `pageUrl`, `pageTitle`는 이 시점에 채워서 보냄.
 5. **녹화 상태와 무관하게 항상 포워딩** — 녹화 중 필터링은 background에서. (Content Script가 toggle 관리하면 SW 재시작 시 동기화 이슈)
-6. 로그/에러는 `console.debug`로만 남김 (콘솔 오염 금지).
+6. 비동기 작업은 `ctx.isValid`로 가드하여 무효화된 컨텍스트에서 `browser.runtime` 호출 방지.
+7. 로그/에러는 `console.debug`로만 남김 (콘솔 오염 금지).
 
 #### 수용 기준
 
 - [ ] 잘못된 origin의 postMessage는 무시
 - [ ] `source` 필드가 다른 메시지는 무시
-- [ ] sendMessage 실패 시 재시도 없이 조용히 drop (background 꺼진 경우 대비)
-- [ ] 단위 테스트: 유효/무효 메시지 구분
+- [ ] `sendMessage` 실패 시 재시도 없이 조용히 drop (background 꺼진 경우 대비)
+- [ ] 확장 비활성화 후에도 `console.warn: context invalidated` 노출 없이 리스너가 정리됨 (`ctx` 활용 검증)
+- [ ] 단위 테스트: 유효/무효 메시지 구분 (Vitest + `fakeBrowser`)
 
 ---
 
@@ -646,7 +699,7 @@ export interface EventForwarder {
 **파일**:
 
 - `entrypoints/background.ts` — `defineBackground(() => { ... })` 조립 진입점
-- `src/background/ports/*`, `src/background/adapters/*`, `src/background/recording-session.ts` — 로직
+- `background/ports/*`, `background/adapters/*`, `background/recording-session.ts` — 로직
 
 #### 포트 정의
 
@@ -674,13 +727,13 @@ export interface ScreenshotCapture {
   capture(tabId: number): Promise<Blob | null>;
 }
 
-// ports/session-store.ts — chrome.storage.session 추상화
+// ports/session-store.ts — session 스토리지 추상화
 export interface SessionStore {
   getRecording(): Promise<RecordingSession | null>;
   setRecording(session: RecordingSession | null): Promise<void>;
 }
 
-// ports/settings-store.ts — chrome.storage.local 추상화
+// ports/settings-store.ts — local 스토리지 추상화
 export interface SettingsStore {
   get(): Promise<Settings>;
   update(partial: Partial<Settings>): Promise<void>;
@@ -689,62 +742,46 @@ export interface SettingsStore {
 }
 ```
 
+> 어댑터 구현 방식: `SessionStore`/`SettingsStore`는 `wxt/storage.defineItem<T>('session:recordingState')` / `defineItem<T>('local:settings')` 등을 내부 필드로 보관하고, 포트 메서드는 그 `getValue()`/`setValue()`를 호출. 기본값과 마이그레이션은 `defineItem` 옵션으로 선언.
+
 #### 책임
 
-- 메시지 라우팅
-- 포트 구현체 조립 (`service-worker.ts`)
+- 메시지 라우팅 (`@webext-core/messaging.onMessage`)
+- 포트 구현체 조립 (`entrypoints/background.ts`의 `defineBackground` 콜백 내부)
 - 세션 로직 (`recording-session.ts`는 포트만 의존, 순수 테스트 가능)
 - 스크린샷 캡처 디바운스 로직 (순수)
 
 #### 요구사항
 
-**3-1. 스토리지 래퍼 (`storage.ts`)**
+**3-1. 스토리지 구성**
 
-```typescript
-// 반드시 export:
-export async function setSettings(partial: Partial<Settings>): Promise<void>;
-export async function getSettings(): Promise<Settings>;
-export async function setSpecsCache(specs: EventSpec[]): Promise<void>;
-export async function getSpecsCache(): Promise<EventSpec[] | null>;
+- `RecordingSession`은 `storage.defineItem<RecordingSession | null>('session:recordingState', { fallback: null })` (SW 재시작에도 녹화 유지)
+- 이벤트는 IndexedDB `events` store, 스크린샷은 `screenshots` store (어댑터에서 직접 IDB 접근)
+- `Settings`/`specsCache`는 `storage.defineItem`의 `local:` 스키마
+- 세션 경계 정리(`clearSession()`): 두 IDB store 비우기 + `recordingState.removeValue()`
+- 포트 인터페이스(§5 M3 포트 정의)만 외부로 노출. `wxt/storage` 타입/인스턴스는 포트 구현체 내부에 숨김.
 
-export async function getRecordingState(): Promise<RecordingSession | null>;
-export async function setRecordingState(
-  state: RecordingSession | null,
-): Promise<void>;
+**3-2. 스크린샷**
 
-export async function addEvent(event: CapturedEvent): Promise<void>;
-export async function getEvents(sessionId: string): Promise<CapturedEvent[]>;
-export async function clearSession(): Promise<void>;
-
-export async function addScreenshot(id: string, blob: Blob): Promise<void>;
-export async function getScreenshot(id: string): Promise<Blob | null>;
-```
-
-- `RecordingSession`은 `chrome.storage.session`에 (SW 재시작에도 녹화 유지)
-- 이벤트는 IndexedDB `events` store, 스크린샷은 `screenshots` store
-- `clearSession()`: 두 IDB store 전부 비우고 storage.session의 `recordingState`도 제거
-
-**3-2. 스크린샷 (`screenshot.ts`)**
-
-- `chrome.tabs.captureVisibleTab(windowId, { format: 'jpeg', quality: 60 })` 사용
+- `browser.tabs.captureVisibleTab(windowId, { format: 'jpeg', quality: 60 })` 사용 (`wxt/browser`에서 import한 `browser`)
 - 디바운스 500ms (마지막 이벤트로부터 500ms 내 캡처 시도 생략하고 이전 스크린샷 ID 재사용)
 - 캡처된 이미지를 `createImageBitmap` + OffscreenCanvas로 **최대 width 480px**로 리사이즈, JPEG quality 0.6
 - Blob으로 변환하여 IndexedDB에 저장, ID 반환
 - **captureVisibleTab 초당 2회 제한** 고려: 에러 발생 시 조용히 skip하고 이전 screenshotId 재사용
 
-**3-3. 메시지 라우팅 (`service-worker.ts`)**
-`chrome.runtime.onMessage` 리스너:
+**3-3. 메시지 라우팅**
+`@webext-core/messaging`의 `onMessage<MessageKey>` 리스너 (공용 인스턴스 `messaging/extension-messaging.ts` import):
 
-| `type`              | 동작                                                                                                                      |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `CAPTURE_EVENT`     | 녹화 중이 아니면 drop. 녹화 중이면: uuid 부여 → 스크린샷 캡처 예약 → screenshotId 할당 → `addEvent()` + `capturedCount++` |
-| `START_RECORDING`   | 기존 세션 있으면 `clearSession()` 후 새 `RecordingSession` 생성, `targetEventNames`, `tabId` 기록. 아이콘 배지 `REC`      |
-| `STOP_RECORDING`    | `endedAt` 세팅, 배지 해제                                                                                                 |
-| `GET_SESSION_STATE` | 현재 `RecordingSession` + `capturedCount`, `targetEventNames` 반환                                                        |
-| `GENERATE_REPORT`   | M8 호출 (새 탭 열기). 본 모듈에서는 trigger만                                                                             |
+| 메시지              | 동작                                                                                                                     |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `captureEvent`      | 녹화 중이 아니면 drop. 녹화 중이면: uuid 부여 → 스크린샷 캡처 예약 → screenshotId 할당 → `addEvent()` + `capturedCount++` |
+| `startRecording`    | 기존 세션 있으면 `clearSession()` 후 새 `RecordingSession` 생성, `targetEventNames`, `tabId` 기록. 아이콘 배지 `REC`     |
+| `stopRecording`     | `endedAt` 세팅, 배지 해제                                                                                                |
+| `getSessionState`   | 현재 `RecordingSession` + `capturedCount`, `targetEventNames` 반환                                                       |
+| `generateReport`    | M8 호출 (새 탭 열기). 본 모듈에서는 trigger만                                                                            |
 
-- 아이콘 배지: 녹화 중 `REC` (빨강), 녹화 완료 `✓` (초록), 기본 없음
-- SW 재시작 시 `chrome.storage.session.recordingState` 읽어 상태 복구
+- 아이콘 배지: 녹화 중 `REC` (빨강), 녹화 완료 `✓` (초록), 기본 없음 — `browser.action.setBadgeText` 사용
+- SW 재시작 시 `session:recordingState.getValue()` 읽어 상태 복구
 
 #### 수용 기준
 
@@ -759,8 +796,8 @@ export async function getScreenshot(id: string): Promise<Blob | null>;
 
 **파일**:
 
-- `entrypoints/popup/index.html`, `entrypoints/popup/main.tsx` — WXT 진입점
-- `src/popup/*` — 로직 (app.tsx, components/, stores/, ports/, adapters/, styles)
+- `entrypoints/popup/index.html`, `entrypoints/popup/main.tsx` — WXT 진입점 (얇은 React 마운트)
+- `popup/*` — 로직 (app.tsx, components/, atoms/, ports/, adapters/, styles)
 - `wxt.config.ts` — manifest 선언 (key, oauth2, permissions 등)
 
 **스택**: React 19 + Jotai + vanilla-extract + WXT
@@ -785,7 +822,7 @@ export interface BackgroundClient {
 }
 ```
 
-어댑터 `runtime-background-client.ts`가 `chrome.runtime.sendMessage`/`onMessage`를 사용하여 구현.
+어댑터 `messaging-background-client.ts`가 `@webext-core/messaging`의 `sendMessage`/`onMessage`(공용 인스턴스 import)를 사용하여 구현.
 **Jotai 아톰/React hook 타입을 이 포트에 노출 금지.**
 
 #### Jotai 아톰 설계
@@ -836,7 +873,7 @@ export const setSpreadsheetAtom = atom(
   },
 );
 export const hydrateSettingsAtom = atom(null, async (_get, set) => {
-  /* chrome.storage에서 복원 */
+  /* BackgroundClient 통해 `wxt/storage`에서 복원 */
 });
 ```
 
@@ -878,11 +915,11 @@ idle → specs_loaded → recording → recording_done → (idle 또는 report_o
 
 - 녹화 시작 시 현재 활성 탭의 `tabId`를 같이 보냄
 - 녹화 중 팝업 닫아도 상태 유지 (M3가 관리)
-- 팝업 열릴 때마다 `GET_SESSION_STATE` 호출해 UI 복구
+- 팝업 열릴 때마다 `getSessionState` 호출해 UI 복구
 
 **4-4. Manifest — `wxt.config.ts`로 선언**
 
-WXT는 `wxt.config.ts`의 `manifest` 필드(정적 값)와 `entrypoints/` 스캔 결과(동적 값)를 병합하여 MV3 manifest 자동 생성. 기존 `manifest.json`의 값들을 이전:
+WXT는 `wxt.config.ts`의 `manifest` 필드(정적 값)와 `entrypoints/` 스캔 결과(동적 값)를 병합하여 MV3 manifest 자동 생성.
 
 ```typescript
 // wxt.config.ts
@@ -894,7 +931,7 @@ export default defineConfig({
     version: "0.1.0",
     permissions: ["activeTab", "tabs", "storage", "identity", "scripting"],
     host_permissions: ["https://*.catchtable.co.kr/*"],
-    key: "<기존 manifest.json의 public key 이전>",
+    key: "<public key>",
     oauth2: {
       client_id: "3134095607-...apps.googleusercontent.com",
       scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
@@ -904,7 +941,7 @@ export default defineConfig({
 ```
 
 - `background`, `action.default_popup`, `content_scripts`는 WXT가 `entrypoints/` 스캔하여 자동 주입
-- 기존 루트의 `manifest.json`은 WXT 도입 시 **삭제** (`.output/chrome-mv3/manifest.json`으로 대체)
+- 루트에는 `manifest.json`을 두지 않음. 최종 manifest는 `.output/<target>/manifest.json`에 생성됨
 
 #### 수용 기준
 
@@ -917,7 +954,7 @@ export default defineConfig({
 
 ### M5. Google Sheets 연동
 
-**파일**: `src/sheets/ports/sheets-source.ts`, `src/sheets/adapters/google-sheets-source.ts`
+**파일**: `sheets/ports/sheets-source.ts`, `sheets/adapters/google-sheets-source.ts`
 
 #### 포트 정의 (다른 모듈이 의존하는 공개 계약)
 
@@ -939,7 +976,7 @@ export interface SheetsSource {
 }
 ```
 
-**구현 격리**: `google-sheets-source.ts`는 `chrome.identity`, `fetch`, Sheets API v4 엔드포인트를 **내부에만** 사용. 다른 모듈은 `SheetsSource` 타입만 import.
+**구현 격리**: `google-sheets-source.ts`는 `browser.identity`(from `wxt/browser`), `fetch`, Sheets API v4 엔드포인트를 **내부에만** 사용. 다른 모듈은 `SheetsSource` 타입만 import.
 
 대체 어댑터 후보 (향후 기술 전환 대비):
 
@@ -948,16 +985,16 @@ export interface SheetsSource {
 
 #### 책임
 
-- Google OAuth 2.0 (chrome.identity 사용)
+- Google OAuth 2.0 (`browser.identity` 사용, `wxt/browser` 경유)
 - Sheets API로 시트 본문 다운로드
 - 시트 전체 또는 특정 탭의 값을 CSV string으로 변환 → M6의 `parseSpecCsv()`에 그대로 투입 가능한 포맷
 
 #### 요구사항
 
 1. **인증**
-   - `chrome.identity.getAuthToken({ interactive: true })`로 access token 획득
+   - `browser.identity.getAuthToken({ interactive: true })`로 access token 획득
    - 스코프: `https://www.googleapis.com/auth/spreadsheets.readonly`
-   - 토큰 만료 시 재발급 흐름 (`removeCachedAuthToken` → 재호출)
+   - 토큰 만료 시 재발급 흐름 (`browser.identity.removeCachedAuthToken` → 재호출)
 2. **시트 URL/ID 파싱**
    - `https://docs.google.com/spreadsheets/d/{spreadsheetId}/edit#gid={sheetGid}` 지원
    - `spreadsheetId`만 입력받는 것도 지원
@@ -966,7 +1003,7 @@ export interface SheetsSource {
    - UI에서 사용자가 탭 선택 → 해당 탭의 A1:ZZ 범위를 `spreadsheets.values.get`으로 다운로드
    - 받은 `values: string[][]`를 CSV text로 직렬화 (papaparse `unparse`)
 4. **캐시**
-   - 다운로드 후 `chrome.storage.local`의 `specsCache`에 저장 (파싱 전/후 모두 저장해도 무방)
+   - 다운로드 후 `local:specsCache`(wxt/storage `defineItem`)에 저장 (파싱 전/후 모두 저장해도 무방)
 5. **에러 처리**
    - 401/403: 재인증 안내
    - 404: URL/ID 잘못됨 안내
@@ -995,14 +1032,14 @@ export async function fetchSheetAsCsv(
 
 #### 유의점
 
-- Chrome Web Store 배포 시 익스텐션 ID 고정 필요 → `manifest.json`의 `key` 필드에 public key 박아야 로컬/배포 ID 일치
+- Chrome Web Store 배포 시 익스텐션 ID 고정 필요 → `wxt.config.ts`의 `manifest.key`에 public key를 명시하여 로컬/배포 ID 일치
 - Google Cloud Console에서 **Chrome Extension 타입 OAuth 클라이언트** 발급 필요
 
 ---
 
 ### M6. Spec Parser ✅ 구현 완료
 
-**파일**: `src/sheets/spec-parser.ts`, `src/types/spec.ts`
+**파일**: `sheets/spec-parser.ts`, `types/spec.ts`
 
 #### 공개 API
 
@@ -1030,7 +1067,7 @@ export function parseSpecCsv(csv: string, options?: ParseOptions): ParseResult;
 
 ### M7. Validator
 
-**파일**: `src/validator/validator.ts`, `src/validator/ports/validation-rule.ts`, `src/validator/rules/*.ts`
+**파일**: `validator/validator.ts`, `validator/ports/validation-rule.ts`, `validator/rules/*.ts`
 
 #### 포트 정의 — 규칙 플러그인
 
@@ -1108,7 +1145,7 @@ export function validate(
 
 **파일**:
 
-- `src/report/*` — 로직
+- `report/*` — 로직
 - (뷰어 모드 선택 시) `entrypoints/report/index.html` + `main.tsx` — WXT 진입점
 
 **스택**: React 19 + vanilla-extract (Jotai 미사용 — 읽기 전용 뷰)
@@ -1121,13 +1158,13 @@ export function validate(
 
 `ValidationReport`를 React로 렌더. 두 모드:
 
-1. **뷰어 모드**: 새 탭에서 `report.html` 열고 `chrome.storage.local`에서 데이터 읽어 React 마운트
+1. **뷰어 모드**: 새 탭에서 `report.html` 열고 `wxt/storage` `local:reportData`에서 데이터 읽어 React 마운트
 2. **다운로드 모드**: `renderToString`으로 정적 HTML 문자열 생성 → `<style>` 태그 인라인 + 스크린샷 base64 인라인 → 단일 `.html` 파일 다운로드
 
 #### 구현 규약
 
 - 렌더링 컴포넌트는 **순수** — props(`ValidationReport` + `screenshotDataUrls: Map<string, string>`)만으로 동작
-- `chrome.tabs.create`/`chrome.downloads.download`는 얇은 어댑터(`download-report.ts`)에만
+- `browser.tabs.create`/`browser.downloads.download`는 얇은 어댑터(`download-report.ts`)에만
 - vanilla-extract 스타일은 빌드 시 static CSS로 추출 → `renderToString` 결과에 인라인 주입
 - 차트는 SVG React 컴포넌트 (`timeline-chart.tsx`)
 
@@ -1167,8 +1204,8 @@ export async function downloadReportAsHtml(
 
 **8-3. 모드**
 
-- `mode=open`: 새 탭에서 `chrome.storage.local`의 report-data 읽어 렌더
-- `mode=download`: data URL 자체완결 HTML 파일 생성 후 `chrome.downloads.download`
+- `mode=open`: 새 탭에서 `wxt/storage` `local:reportData` 읽어 렌더
+- `mode=download`: data URL 자체완결 HTML 파일 생성 후 `browser.downloads.download`
 
 **8-4. 공개 API**
 
@@ -1230,17 +1267,18 @@ export async function downloadReport(report: ValidationReport): Promise<void>; /
 - Node >= 20
 - 패키지: `npm install`
 - 스크립트:
-  - `npm test` — Vitest
-  - `npm run typecheck` — tsc --noEmit
-  - `npm run smoke` — M6 파서를 4개 CSV에 대해 실행
-  - `npm run dev` — `wxt` dev (HMR, 자동 리로드) — M4 담당 셋업
-  - `npm run build` — `wxt build` → `.output/chrome-mv3/` — M4 담당 셋업
-  - `npm run zip` — `wxt zip` → 배포용 ZIP — M4 담당 셋업
+  - `npm test` — Vitest (WxtVitest 플러그인 경유 — `browser.*` in-memory 폴리필 포함)
+  - `npm run compile` — `tsc --noEmit` (strict + noUncheckedIndexedAccess)
+  - `npm run dev` — `wxt` dev (HMR, 자동 리로드)
+  - `npm run build` — `wxt build` → `.output/chrome-mv3/`
+  - `npm run zip` — `wxt zip` → 배포용 ZIP
+  - `npm run dev:firefox`/`build:firefox`/`zip:firefox` — Firefox best-effort 타겟 (Phase 1 지원 보증 범위 밖)
+- `postinstall`이 `wxt prepare`를 자동 실행하여 `.wxt/tsconfig.json` + alias + 타입을 생성
 
 ### 7.1. 필요 의존성 (M4 착수 시 추가)
 
 ```
-dependencies: react, react-dom, jotai, @vanilla-extract/css
+dependencies: react, react-dom, jotai, @vanilla-extract/css, @webext-core/messaging
 devDependencies: wxt, @wxt-dev/module-react,
                  @vanilla-extract/vite-plugin,
                  @types/react, @types/react-dom,
@@ -1248,11 +1286,12 @@ devDependencies: wxt, @wxt-dev/module-react,
 ```
 
 - WXT가 Vite를 내부적으로 사용하므로 `vite` 직접 의존 불필요
+- `wxt/storage`, `wxt/browser`, `wxt/testing/*`는 WXT 내장 → 별도 설치 불필요
 - `wxt.config.ts`에 `@wxt-dev/module-react` 모듈 등록 + `vite` 훅으로 `@vanilla-extract/vite-plugin` 추가
 
 ### 7.1. Shared 규칙
 
-- 모든 PR은 `npm run typecheck && npm test` 통과
+- 모든 PR은 `npm run compile && npm test` 통과
 - 공통 타입 변경은 별도 PR로 분리
 - 각 모듈은 자신만의 테스트 파일 유지 (`*.test.ts`)
 
@@ -1293,15 +1332,18 @@ devDependencies: wxt, @wxt-dev/module-react,
 
 1. **Amplitude 1개만 인터셉트** — 팬아웃 버그는 범위 밖. 목적은 스펙 구현 여부 효율적 검수.
 2. **웹앱에 postMessage bridge를 심는다** — MV3 MAIN world 주입 이슈, SDK 버전 의존성, ConsoleLogger debugger API 의존성 모두 회피. 웹앱에 수십 줄 PR 1회.
-3. **OAuth via `chrome.identity`** — Service Account는 클라이언트에 private key 노출 위험, API Key는 시트 공개 필요. OAuth가 유일한 실용적 선택.
+3. **OAuth via `browser.identity`** — Service Account는 클라이언트에 private key 노출 위험, API Key는 시트 공개 필요. OAuth가 유일한 실용적 선택.
 4. **status 필터 제거** — 개발 중 QA 검증도 대상. draft/broken 포함.
 5. **eventName 매칭 키는 Amplitude 이벤트명** — `{page}_{section}_{action}_{type}` 포맷. 시트의 "마지막 eventName" 컬럼.
 6. **Phase 1 검증은 존재 여부까지만** — 시트에 타입/enum 컬럼 없음. 값 검증은 Phase 2.
 7. **스크린샷은 있으면 좋은 수준** — 500ms 디바운스 누락 허용, 썸네일 480px, JPEG 0.6 품질.
 8. **스토리지 전략**:
-   - 런타임 상태 → `chrome.storage.session` (SW 재시작 대비)
-   - 설정/캐시 → `chrome.storage.local`
-   - 이벤트/스크린샷 → IndexedDB
+   - 런타임 상태 → `wxt/storage` `session:*` (SW 재시작 대비)
+   - 설정/캐시 → `wxt/storage` `local:*`
+   - 이벤트/스크린샷 → IndexedDB (wxt/storage 범위 밖)
+9. **`src/` 디렉터리 미사용** — WXT는 `srcDir`을 지정하면 `entrypoints/`까지 같이 옮겨야 함. 엔트리포인트는 루트에 유지하되 모듈 코드를 `src/` 하위로만 격리시키는 중간 형태는 WXT 표준과 어긋나 경로 혼선만 유발. 모든 모듈 폴더를 루트에 평탄 배치.
+10. **메시징 라이브러리 `@webext-core/messaging`** — vanilla `browser.runtime.sendMessage`는 타입 안전·에러 전파·이중 리스너 문제로 WXT 공식 문서도 서드파티 래퍼를 권장(`.claude/wxt-docs/guide/essentials/messaging.md`). ProtocolMap 스타일이 포트와 잘 맞음.
+11. **확장 API는 `wxt/browser`의 `browser`** — `chrome.*` 직접 참조 금지. 향후 Firefox 지원 격상 시 어댑터 재작성 비용 제거.
 
 ---
 
@@ -1311,15 +1353,19 @@ devDependencies: wxt, @wxt-dev/module-react,
 
 - [ ] §3 공통 계약 정독 (특히 §3.5 명명/주석, §3.6 SOLID)
 - [ ] §4 기술 스택 확인 — 번들러는 **WXT** (Vite 직접 사용 금지), React/Jotai/vanilla-extract는 **M4/M8에만**
-- [ ] 엔트리포인트(`entrypoints/*`)에는 조립만, 비즈니스 로직은 `src/<module>/`
+- [ ] 엔트리포인트(`entrypoints/*`)에는 조립만, 비즈니스 로직은 루트 모듈 폴더(`<module>/`)에 배치. `src/` 금지
+- [ ] **엔트리포인트 최상위(top-level)에 `browser.*`/`window.*` 등 런타임 API 호출 금지** — 반드시 `main`/`defineBackground` 콜백 내부로 이동 (§4.2 참고)
 - [ ] 자신이 맡은 §5 모듈 섹션 정독
 - [ ] 포트 먼저 정의 → 순수 로직 작성 → 어댑터 작성 순서
 - [ ] 의존 모듈은 **포트 타입만 import** (어댑터/구현 import 금지)
 - [ ] 모든 파일/폴더 kebab-case (React 컴포넌트 파일도 `component-name.tsx`)
 - [ ] 모든 주석 한국어
-- [ ] 단위 테스트: 순수 로직은 어댑터 없이, 어댑터는 각자 최소 1개
-- [ ] `chrome.*`/`fetch`/`indexedDB` 직접 사용은 `adapters/` 하위에만
+- [ ] 단위 테스트: 순수 로직은 fake 포트 주입, `browser.*`/`wxt/storage` 사용 어댑터는 `fakeBrowser.reset()` 기반 `WxtVitest` 테스트
+- [ ] 확장 API는 `import { browser } from 'wxt/browser'` 한 경로만 사용 (`chrome.*` 금지)
+- [ ] 스토리지는 `wxt/storage.defineItem` 기반 어댑터로만 접근 (포트 외부에는 `wxt/storage` 타입 노출 금지)
+- [ ] 메시지는 `@webext-core/messaging` 공용 인스턴스(`messaging/extension-messaging.ts`) 사용
+- [ ] Content Script에서 `window.addEventListener`·`setTimeout` 등은 반드시 `ctx.*`로 래핑
 - [ ] Jotai 아톰/React hook 타입을 모듈 경계 밖으로 노출 금지
-- [ ] 공개 API 시그니처에 라이브러리/런타임 타입 노출 금지
-- [ ] `npm run typecheck && npm test` 통과
+- [ ] 공개 API 시그니처에 라이브러리/런타임 타입 노출 금지 (단, `ContentScriptContext`는 M2 포트 내부로 한해 허용)
+- [ ] `npm run compile && npm test` 통과
 - [ ] 공통 계약(§3.2, §3.3) 변경 시 PR 설명에 영향 범위 명시
