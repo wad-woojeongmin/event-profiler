@@ -5,7 +5,7 @@ import { parseSpecRows } from "../spec-parser.ts";
 import type { FetchFn } from "../google-sheets-api.ts";
 import { createGoogleSheetsSource, type TokenProvider } from "./google-sheets-source.ts";
 
-/** FetchFn 시그니처로 고정된 `vi.fn` 생성. */
+/** `FetchFn` 시그니처로 고정된 `vi.fn` 생성. */
 function mockFetch(impl: FetchFn) {
   return vi.fn<FetchFn>(impl);
 }
@@ -35,7 +35,8 @@ function jsonRes(body: unknown, status = 200): Response {
 }
 
 interface TokenCalls {
-  getToken: boolean[]; // interactive 인자 이력
+  /** `getToken`에 전달된 `interactive` 인자 이력. */
+  getToken: boolean[];
   removeToken: string[];
   clearAll: number;
 }
@@ -162,7 +163,7 @@ describe("createGoogleSheetsSource", () => {
     const rows = await source.fetchRows("main");
     expect(rows).toEqual([["x"]]);
     expect(tokenProvider.calls.removeToken).toEqual(["stale"]);
-    // 최초 silent → 재발급 interactive
+    // 최초 silent → 401 후 interactive 재발급.
     expect(tokenProvider.calls.getToken).toEqual([false, true]);
     const secondInit = fetchFn.mock.calls[1]?.[1] as RequestInit;
     expect((secondInit.headers as Record<string, string>).Authorization).toBe(

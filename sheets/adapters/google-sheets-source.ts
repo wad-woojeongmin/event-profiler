@@ -1,8 +1,8 @@
 // Google Sheets 기반 SheetsSource 어댑터.
 //
-// 외부 의존성(`browser.identity`, `fetch`)은 여기에서만 쓴다. 토큰 발급/폐기와
-// `fetch`는 주입 가능하도록 분리해 유닛 테스트에서 `browser.identity` 없이도
-// 실구현을 그대로 검증할 수 있게 했다.
+// 외부 의존성(`browser.identity`, `fetch`)은 이 파일에서만 사용한다.
+// 토큰 공급과 `fetch`는 주입 가능하게 분리해 `browser.identity` 없이도
+// 어댑터 실구현을 단위 테스트에서 그대로 검증한다.
 
 import { browser } from "wxt/browser";
 
@@ -19,7 +19,7 @@ const OAUTH_SCOPES = [
   "https://www.googleapis.com/auth/spreadsheets.readonly",
 ] as const;
 
-/** 401/403 재인증·429 레이트 리밋 양쪽 모두 "1회 고정 재시도"다. */
+/** 429 재시도 전 대기 시간(ms). 401/403은 백오프 없이 즉시 재발급·재시도. */
 const RETRY_BACKOFF_MS = 1_000;
 
 /** 토큰 발급·폐기 경계. 테스트에서 `browser.identity` 없이 주입 가능. */
@@ -30,17 +30,16 @@ export interface TokenProvider {
 }
 
 export interface GoogleSheetsAdapterDeps {
-  /** 기본값은 전역 `fetch`. 테스트에서 mock 주입. */
+  /** 기본값 = 전역 `fetch`. */
   fetchFn?: FetchFn;
-  /** 테스트에서 spreadsheet를 바꾸고 싶을 때 사용. */
+  /** 기본값 = `SPEC_SPREADSHEET_ID`. */
   spreadsheetId?: string;
-  /** 기본값은 `browser.identity` 기반. 테스트에서 fake 주입. */
+  /** 기본값 = `browser.identity` 기반 구현. */
   tokenProvider?: TokenProvider;
-  /** 재시도 sleep 주입(테스트 속도 향상용). */
+  /** 재시도 백오프 슬립. 테스트에서 즉시 resolve로 치환. */
   sleepFn?: (ms: number) => Promise<void>;
 }
 
-/** 기본 어댑터 조립. */
 export function createGoogleSheetsSource(
   deps: GoogleSheetsAdapterDeps = {},
 ): SheetsSource {
@@ -50,14 +49,13 @@ export function createGoogleSheetsSource(
   const sleepFn = deps.sleepFn ?? defaultSleep;
 
   /**
-   * 토큰을 받아 `job`을 실행한다.
+   * 토큰 발급 후 `job`을 실행한다. 재시도 정책은 "단일 분기 1회 한정":
+   * - 401/403 → 토큰 폐기 + interactive 재발급 후 1회 재시도
+   * - 429    → `RETRY_BACKOFF_MS` 대기 후 1회 재시도
+   * - 재시도 결과도 실패면 원인 에러 전파 (무한 루프 방지)
    *
-   * 재시도 정책은 "단일 분기 1회 고정 재시도" — 401/403이면 토큰 폐기 후
-   * 대화형 재발급 1회, 429면 고정 백오프 후 1회만 더. 재시도 결과가 또 401/
-   * 429여도 추가 재시도는 하지 않는다(무한 루프 방지).
-   *
-   * 최초 토큰은 `interactive=false`(silent)로 시도하여 UX를 해치지 않으며,
-   * silent 실패 시에만 대화형으로 승급한다.
+   * 최초 토큰은 `interactive=false`로 요청해 불필요한 OAuth 팝업을 피하고,
+   * 캐시 부재 시에만 interactive로 승급한다.
    */
   const runWithAuth = async <T>(
     job: (token: string) => Promise<T>,
@@ -81,19 +79,17 @@ export function createGoogleSheetsSource(
 
   return {
     async authenticate(): Promise<void> {
-      // UI에서 명시적으로 호출되는 로그인 플로우 — 항상 interactive.
       await tokenProvider.getToken(true);
     },
 
     async signOut(): Promise<void> {
-      // 최신 토큰을 먼저 명시적으로 폐기한다. clearAll이 no-op인 브라우저
-      // (`chrome.identity.clearAllCachedAuthTokens`가 없는 폴리필)에서도
-      // 최소 한 개의 토큰은 반드시 제거되도록 보장한다.
+      // `clearAllCachedAuthTokens`가 없는 폴리필 환경에서도 최소 1개 토큰은
+      // 반드시 제거되도록, 캐시된 토큰을 먼저 명시적으로 폐기한다.
       try {
         const cached = await tokenProvider.getToken(false);
         await tokenProvider.removeToken(cached);
       } catch {
-        // silent 발급 실패(= 캐시 없음)는 이미 로그아웃 상태로 간주.
+        // silent 실패 = 캐시 없음 → 이미 로그아웃 상태.
       }
       await tokenProvider.clearAll();
     },
@@ -113,8 +109,8 @@ export function createGoogleSheetsSource(
 }
 
 /**
- * 최초 토큰 획득. silent(interactive=false)로 먼저 시도하고, 캐시가 비어
- * 예외가 나면 대화형으로 한 번 승급한다. 이후 재시도는 `runWithAuth` 책임.
+ * 최초 토큰 획득. silent를 먼저 시도하고, 캐시 미스로 예외가 나면
+ * interactive로 1회 승급한다. 이후 401/403/429 재시도는 `runWithAuth` 담당.
  */
 async function acquireInitialToken(
   provider: TokenProvider,
@@ -142,9 +138,8 @@ function createBrowserTokenProvider(): TokenProvider {
       await browser.identity.removeCachedAuthToken({ token });
     },
     async clearAll() {
-      // 일부 폴리필/브라우저에서 이 API가 없을 수 있어 best-effort.
-      // 호출자(adapter `signOut`)는 이 경로 이전에 알려진 토큰을 이미
-      // 명시적으로 `removeToken`한다.
+      // `clearAllCachedAuthTokens`가 없는 폴리필이 있어 best-effort.
+      // 호출자는 이 경로 이전에 캐시 토큰을 `removeToken`한 상태다.
       const fn = (
         browser.identity as unknown as {
           clearAllCachedAuthTokens?: () => Promise<void>;
@@ -158,9 +153,8 @@ function createBrowserTokenProvider(): TokenProvider {
 }
 
 /**
- * Chrome/Firefox/polyfill 반환값 차이를 흡수한다.
- * - Chrome(MV3 polyfill): `{ token: string, grantedScopes: string[] }`
- * - 일부 구현: `string` 자체
+ * Chrome(MV3 polyfill)은 `{ token, grantedScopes }`, 일부 구현은 `string`을
+ * 반환한다. 두 형태를 모두 `string | undefined`로 정규화한다.
  */
 function extractToken(result: unknown): string | undefined {
   if (typeof result === "string") return result;
@@ -185,5 +179,5 @@ function defaultSleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** 모듈 기본 인스턴스. 공개 편의 함수(`sheets/index.ts`)가 이걸 사용한다. */
+/** 공개 편의 함수(`sheets/index.ts`)가 사용하는 기본 인스턴스. */
 export const googleSheetsSource: SheetsSource = createGoogleSheetsSource();

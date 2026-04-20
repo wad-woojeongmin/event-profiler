@@ -151,8 +151,8 @@ describe("parseParams", () => {
 });
 
 describe("parseSpecRows", () => {
-  // Sheets API `spreadsheets.values.get`가 반환하는 형태를 직접 주입하는 경로.
-  // parseSpecCsv는 이 함수의 얇은 래퍼이므로 동일한 결과를 내야 한다.
+  // Sheets API `values.get` 응답 형태를 직접 주입하는 경로. parseSpecCsv는
+  // 이 함수의 얇은 래퍼이므로 동일 결과를 보장해야 한다.
   it("parses string[][] rows identically to parseSpecCsv", () => {
     const header1 = HEADER_LINE_1.split(",");
     const header2 = HEADER_LINE_2.split(",");
