@@ -6,6 +6,7 @@
 
 import { atom } from "jotai";
 
+import { isSupportedUrl } from "@/content";
 import type { RecordingSessionState } from "@/types/messages.ts";
 
 import { backgroundClientAtom, requireBackgroundClient } from "./client-atom.ts";
@@ -60,16 +61,24 @@ export const clearSelectionAtom = atom(null, (_get, set) => {
 });
 
 /**
- * 녹화 시작 액션. 선택 0건이면 no-op으로 UI 가드를 통과한다. 시작 호출 직후
- * `getSessionState`로 실제 세션을 재조회해 SW가 할당한 `session.id`·`startedAt`을
- * 반영한다.
+ * 녹화 시작 액션. 선택 0건이거나 활성 탭이 지원 도메인이 아니면 no-op으로
+ * UI 가드(버튼 disabled, 배너)를 보조한다. 가드는 UI와 액션 양쪽에 두어 UI
+ * 상태가 아직 hydrate되지 않은 프레임에서 버튼이 눌려도 무의미한 세션이
+ * 생기지 않게 한다. 시작 호출 직후 `getSessionState`로 실제 세션을 재조회해
+ * SW가 할당한 `session.id`·`startedAt`을 반영한다.
+ *
+ * 주의: URL 매칭은 "시작 시점"에만 검사한다. 녹화 중 사용자가 탭을 비지원
+ * URL로 이동시키더라도 세션을 자동 중단하지 않으며, 중단 판단은 사용자에게
+ * 맡긴다. Content Script는 해당 탭에만 주입되므로 비지원 URL에서는 이벤트가
+ * 애초에 캡처되지 않아 결과가 오염되지 않는다.
  */
 export const startRecordingAtom = atom(null, async (get, set) => {
   const client = requireBackgroundClient(get(backgroundClientAtom));
   const selected = [...get(selectedEventNamesAtom)];
   if (selected.length === 0) return;
-  const tabId = await client.getActiveTabId();
-  await client.startRecording(selected, tabId);
+  const tab = await client.getActiveTab();
+  if (!isSupportedUrl(tab.url)) return;
+  await client.startRecording(selected, tab.id);
   set(recordingSessionAtom, await client.getSessionState());
 });
 

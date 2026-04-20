@@ -10,9 +10,11 @@ import "./styles/reset.css.ts";
 
 import { backgroundClientAtom } from "./atoms/client-atom.ts";
 import { hydrateSessionAtom } from "./atoms/recording-atoms.ts";
+import { hydrateActiveTabAtom } from "./atoms/tab-atoms.ts";
 import { RecordingControls } from "./components/recording-controls.tsx";
 import { SettingsSection } from "./components/settings-section.tsx";
 import { SpecList } from "./components/spec-list.tsx";
+import { UnsupportedTabBanner } from "./components/unsupported-tab-banner.tsx";
 import type { BackgroundClient } from "./ports/background-client.ts";
 
 export interface PopupAppProps {
@@ -24,8 +26,10 @@ export function PopupApp({ client }: PopupAppProps) {
     <Provider>
       <ClientInjector client={client} />
       <SessionBridge />
+      <TabBridge />
       <SettingsSection />
       <SpecList />
+      <UnsupportedTabBanner />
       <RecordingControls />
     </Provider>
   );
@@ -66,6 +70,18 @@ function SessionBridge() {
       cancelled = true;
       unsubscribe?.();
     };
+  }, [hydrate]);
+  return null;
+}
+
+/**
+ * 팝업 마운트 시 활성 탭 정보를 1회 pull한다. "지원 페이지" 배너와 녹화 시작
+ * 가드가 모두 이 결과를 소비한다.
+ */
+function TabBridge() {
+  const hydrate = useSetAtom(hydrateActiveTabAtom);
+  useEffect(() => {
+    void hydrate();
   }, [hydrate]);
   return null;
 }
