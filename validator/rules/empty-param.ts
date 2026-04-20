@@ -2,9 +2,13 @@ import type { ValidationIssue } from "../../types/validation.ts";
 import type { ValidationRule } from "../ports/validation-rule.ts";
 
 /**
- * R3 — 수집 이벤트에 key는 존재하지만 값이 `undefined`/`null`/빈 문자열.
+ * R3 — key는 존재하지만 값이 `undefined`/`null`/빈 문자열.
  *
- * `0`, `false` 같은 falsy 값은 유효한 값으로 간주한다.
+ * @remarks
+ * - `0`, `false`는 **유효한 값**으로 취급(수량 0, 플래그 off 등 정상 비즈니스 값).
+ *   단순 falsy 검사로 바꾸지 말 것.
+ * - key 자체가 없는 경우는 R2 소관이므로 여기서 이슈 없음.
+ * - `reported` Set: R2와 동일 이유로 `spec.params` 중복 key 방어.
  */
 export const emptyParamRule: ValidationRule = {
   code: "empty_param",
@@ -13,7 +17,6 @@ export const emptyParamRule: ValidationRule = {
     if (ctx.spec.params.length === 0) return [];
 
     const issues: ValidationIssue[] = [];
-    // `spec.params`에 동일 key가 중복 등장할 경우를 막는 방어막 (R2와 동일 이유).
     const reported = new Set<string>();
     for (const key of ctx.spec.params) {
       const emptyInAny = ctx.captured.some((event) => {
