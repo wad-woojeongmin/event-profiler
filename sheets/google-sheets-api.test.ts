@@ -97,6 +97,27 @@ describe("fetchSheetValues", () => {
     expect(url).toContain(encodeURIComponent("'search list'!A1:ZZ"));
   });
 
+  it("숫자로만 된 탭명도 따옴표로 감싼다(API 400 방어)", async () => {
+    const fetchFn = mockFetch(async () => jsonResponse({ values: [] }));
+    await fetchSheetValues(fetchFn, "tok", "2024", "sid");
+    const url = fetchFn.mock.calls[0]![0] as string;
+    expect(url).toContain(encodeURIComponent("'2024'!A1:ZZ"));
+  });
+
+  it("한글 탭명도 따옴표로 감싼다", async () => {
+    const fetchFn = mockFetch(async () => jsonResponse({ values: [] }));
+    await fetchSheetValues(fetchFn, "tok", "메인", "sid");
+    const url = fetchFn.mock.calls[0]![0] as string;
+    expect(url).toContain(encodeURIComponent("'메인'!A1:ZZ"));
+  });
+
+  it("탭 제목 안의 작은따옴표는 두 개로 escape", async () => {
+    const fetchFn = mockFetch(async () => jsonResponse({ values: [] }));
+    await fetchSheetValues(fetchFn, "tok", "it's", "sid");
+    const url = fetchFn.mock.calls[0]![0] as string;
+    expect(url).toContain(encodeURIComponent("'it''s'!A1:ZZ"));
+  });
+
   it("429면 SheetsApiError(429)", async () => {
     const fetchFn = mockFetch(async () => new Response("rate", { status: 429 }));
     const err = await fetchSheetValues(fetchFn, "tok", "main", "sid").catch(

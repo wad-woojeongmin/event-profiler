@@ -49,11 +49,7 @@ export async function fetchSheetValues(
   sheetTitle: string,
   spreadsheetId: string = SPEC_SPREADSHEET_ID,
 ): Promise<string[][]> {
-  // 탭 제목에 특수문자가 있으면 A1 노테이션에서 작은따옴표로 감싸야 한다.
-  const quoted = sheetTitle.includes(" ") || /[^A-Za-z0-9_]/.test(sheetTitle)
-    ? `'${sheetTitle.replace(/'/g, "''")}'`
-    : sheetTitle;
-  const range = `${quoted}!A1:ZZ`;
+  const range = `${quoteA1SheetTitle(sheetTitle)}!A1:ZZ`;
   const url = `${API_BASE}/${encodeURIComponent(spreadsheetId)}/values/${encodeURIComponent(range)}`;
   const res = await fetchFn(url, buildRequestInit(token));
   await throwIfNotOk(res);
@@ -70,6 +66,18 @@ export class SheetsApiError extends Error {
     super(`Sheets API ${status}: ${body.slice(0, 200)}`);
     this.name = "SheetsApiError";
   }
+}
+
+/**
+ * A1 노테이션의 탭 제목 쿼팅.
+ *
+ * 시트 이름이 ES 식별자 형태(`^[A-Za-z_]\w*$`)가 아니면 반드시 작은따옴표로
+ * 감싸야 한다. 숫자로만 된 이름(`"2024"`)·공백 포함·한글 등은 unquoted일 때
+ * Sheets API가 400을 돌려준다. 따옴표 자체는 두 개로 escape.
+ */
+function quoteA1SheetTitle(title: string): string {
+  if (/^[A-Za-z_]\w*$/.test(title)) return title;
+  return `'${title.replace(/'/g, "''")}'`;
 }
 
 function buildRequestInit(token: string): RequestInit {

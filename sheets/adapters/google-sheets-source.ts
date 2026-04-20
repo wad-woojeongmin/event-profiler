@@ -1,11 +1,10 @@
 // Google Sheets 기반 SheetsSource 어댑터.
 //
-// 외부 의존성(`browser.identity`, `fetch`, `wxt/storage`)은 여기에서만 쓴다.
-// 토큰 발급/폐기와 `fetch`는 주입 가능하도록 분리해 유닛 테스트에서
-// `browser.identity`에 의존하지 않도록 했다.
+// 외부 의존성(`browser.identity`, `fetch`)은 여기에서만 쓴다. 토큰 발급/폐기와
+// `fetch`는 주입 가능하도록 분리해 유닛 테스트에서 `browser.identity` 없이도
+// 실구현을 그대로 검증할 수 있게 했다.
 
 import { browser } from "wxt/browser";
-import { storage } from "wxt/utils/storage";
 
 import { SPEC_SPREADSHEET_ID } from "../constants.ts";
 import {
@@ -16,22 +15,12 @@ import {
 } from "../google-sheets-api.ts";
 import type { SheetTab, SheetsSource } from "../ports/sheets-source.ts";
 
-const OAUTH_SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"];
+const OAUTH_SCOPES = [
+  "https://www.googleapis.com/auth/spreadsheets.readonly",
+] as const;
 
-/** 레이트 리밋 시 재시도 전 대기 시간(ms). */
-const RATE_LIMIT_BACKOFF_MS = 1_000;
-
-/**
- * 탭별 raw rows 내부 캐시.
- *
- * `local:specsCache`(EventSpec[])는 스펙 파싱 후 소비자가 쓰는 경계 계약이며,
- * 이 키는 M5 내부에서만 쓰는 원본 rows 캐시다. 스펙 파싱 전 단계의 데이터라
- * 탭 전환·빠른 복구용으로만 사용한다.
- */
-const rowsCache = storage.defineItem<Record<string, string[][]> | null>(
-  "local:sheetRowsCache",
-  { fallback: null },
-);
+/** 401/403 재인증·429 레이트 리밋 양쪽 모두 "1회 고정 재시도"다. */
+const RETRY_BACKOFF_MS = 1_000;
 
 /** 토큰 발급·폐기 경계. 테스트에서 `browser.identity` 없이 주입 가능. */
 export interface TokenProvider {
@@ -61,13 +50,19 @@ export function createGoogleSheetsSource(
   const sleepFn = deps.sleepFn ?? defaultSleep;
 
   /**
-   * 토큰을 받아 `job`을 실행. 401/403은 토큰 폐기 후 재발급하여 한 번,
-   * 429는 백오프 후 한 번 재시도한다.
+   * 토큰을 받아 `job`을 실행한다.
+   *
+   * 재시도 정책은 "단일 분기 1회 고정 재시도" — 401/403이면 토큰 폐기 후
+   * 대화형 재발급 1회, 429면 고정 백오프 후 1회만 더. 재시도 결과가 또 401/
+   * 429여도 추가 재시도는 하지 않는다(무한 루프 방지).
+   *
+   * 최초 토큰은 `interactive=false`(silent)로 시도하여 UX를 해치지 않으며,
+   * silent 실패 시에만 대화형으로 승급한다.
    */
   const runWithAuth = async <T>(
     job: (token: string) => Promise<T>,
   ): Promise<T> => {
-    let token = await tokenProvider.getToken(true);
+    let token = await acquireInitialToken(tokenProvider);
     try {
       return await job(token);
     } catch (err) {
@@ -77,7 +72,7 @@ export function createGoogleSheetsSource(
         return await job(token);
       }
       if (isRateLimit(err)) {
-        await sleepFn(RATE_LIMIT_BACKOFF_MS);
+        await sleepFn(RETRY_BACKOFF_MS);
         return await job(token);
       }
       throw err;
@@ -86,11 +81,20 @@ export function createGoogleSheetsSource(
 
   return {
     async authenticate(): Promise<void> {
-      // 토큰 획득만 수행. 결과는 외부로 노출하지 않는다(포트 무누출).
+      // UI에서 명시적으로 호출되는 로그인 플로우 — 항상 interactive.
       await tokenProvider.getToken(true);
     },
 
     async signOut(): Promise<void> {
+      // 최신 토큰을 먼저 명시적으로 폐기한다. clearAll이 no-op인 브라우저
+      // (`chrome.identity.clearAllCachedAuthTokens`가 없는 폴리필)에서도
+      // 최소 한 개의 토큰은 반드시 제거되도록 보장한다.
+      try {
+        const cached = await tokenProvider.getToken(false);
+        await tokenProvider.removeToken(cached);
+      } catch {
+        // silent 발급 실패(= 캐시 없음)는 이미 로그아웃 상태로 간주.
+      }
       await tokenProvider.clearAll();
     },
 
@@ -101,15 +105,25 @@ export function createGoogleSheetsSource(
     },
 
     async fetchRows(sheetTitle: string): Promise<string[][]> {
-      const rows = await runWithAuth((token) =>
+      return runWithAuth((token) =>
         fetchSheetValues(fetchFn, token, sheetTitle, spreadsheetId),
       );
-      // 성공적으로 받은 rows만 캐시에 병합 저장.
-      const current = (await rowsCache.getValue()) ?? {};
-      await rowsCache.setValue({ ...current, [sheetTitle]: rows });
-      return rows;
     },
   };
+}
+
+/**
+ * 최초 토큰 획득. silent(interactive=false)로 먼저 시도하고, 캐시가 비어
+ * 예외가 나면 대화형으로 한 번 승급한다. 이후 재시도는 `runWithAuth` 책임.
+ */
+async function acquireInitialToken(
+  provider: TokenProvider,
+): Promise<string> {
+  try {
+    return await provider.getToken(false);
+  } catch {
+    return await provider.getToken(true);
+  }
 }
 
 /** `browser.identity` 기반 기본 TokenProvider. */
@@ -118,7 +132,7 @@ function createBrowserTokenProvider(): TokenProvider {
     async getToken(interactive) {
       const result = await browser.identity.getAuthToken({
         interactive,
-        scopes: OAUTH_SCOPES,
+        scopes: [...OAUTH_SCOPES],
       });
       const token = extractToken(result);
       if (!token) throw new Error("Google 인증 토큰을 얻지 못했습니다.");
@@ -129,6 +143,8 @@ function createBrowserTokenProvider(): TokenProvider {
     },
     async clearAll() {
       // 일부 폴리필/브라우저에서 이 API가 없을 수 있어 best-effort.
+      // 호출자(adapter `signOut`)는 이 경로 이전에 알려진 토큰을 이미
+      // 명시적으로 `removeToken`한다.
       const fn = (
         browser.identity as unknown as {
           clearAllCachedAuthTokens?: () => Promise<void>;
