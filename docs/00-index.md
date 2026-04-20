@@ -12,6 +12,7 @@
 | [04-wxt-rules](./04-wxt-rules.md)          | WXT 사용 규칙 (엔트리포인트·browser·storage·messaging) + wxt-docs 링크 |
 | [05-sheet-spec](./05-sheet-spec.md)        | 이벤트 스펙 시트 컬럼/파라미터 규칙 (M5/M6 전용)                       |
 | [modules/m1-bridge](./modules/m1-bridge.md) ~ [m8-report](./modules/m8-report.md) | 모듈별 요구사항·포트·수용 기준                                         |
+| [modules/m9-auth](./modules/m9-auth.md) | (예정) OAuth 인증 모듈 분리 — Phase 2 착수 전 설계 메모                  |
 
 ## 에이전트 라우팅
 
@@ -35,6 +36,7 @@
 | M6   | [m6-spec-parser](./modules/m6-spec-parser.md)    | [05-sheet-spec](./05-sheet-spec.md)                               |
 | M7   | [m7-validator](./modules/m7-validator.md)        | [02-contracts §validation](./02-contracts.md#typesvalidationts-m7-담당) |
 | M8   | [m8-report](./modules/m8-report.md)              | M3 `ScreenshotReader` 포트                                        |
+| M9   | [m9-auth](./modules/m9-auth.md) *(예정)*         | [m5-sheets](./modules/m5-sheets.md) §인증, [m4-popup](./modules/m4-popup.md) 인증 아톰 |
 
 ## 의존 그래프 (모듈 포트 의존)
 
