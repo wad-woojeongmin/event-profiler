@@ -13,7 +13,7 @@ function jsonResponse(body: unknown, init: ResponseInit = { status: 200 }): Resp
   });
 }
 
-/** FetchFn 시그니처를 유지하며 `vi.fn`으로 감싸 mock 호출 기록을 남긴다. */
+/** `FetchFn` 시그니처를 유지한 채 `vi.fn`으로 감싸 호출 이력을 기록한다. */
 function mockFetch(impl: FetchFn) {
   return vi.fn<FetchFn>(impl);
 }

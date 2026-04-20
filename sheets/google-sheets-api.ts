@@ -1,19 +1,17 @@
-// Google Sheets API v4 호출을 담당하는 순수 함수 모듈.
-//
-// 이 파일은 `browser.*`·`wxt/storage` 등 확장 API에 의존하지 않는다. 토큰과
-// `fetch`는 호출자로부터 주입받아 단위 테스트에서 모킹 가능하도록 설계했다.
+// Google Sheets API v4 호출 순수 함수. 확장 API(`browser.*`·storage)에
+// 의존하지 않으며, 토큰과 `fetch`는 호출자가 주입한다.
 
 import { SPEC_SPREADSHEET_ID } from "./constants.ts";
 import type { SheetTab } from "./ports/sheets-source.ts";
 
 const API_BASE = "https://sheets.googleapis.com/v4/spreadsheets";
 
-/** 호출자가 주입하는 `fetch` 인터페이스. 표준 `fetch`와 시그니처 호환. */
+/** 표준 `fetch`와 시그니처 호환되는 주입 가능한 fetch 타입. */
 export type FetchFn = typeof fetch;
 
 /**
- * `spreadsheets.get`으로 탭 메타데이터만 가져온다.
- * `fields` 파라미터로 응답 크기를 줄인다.
+ * `spreadsheets.get`으로 탭 메타데이터만 조회한다.
+ * `fields` 파라미터로 응답 크기를 최소화한다.
  */
 export async function fetchSpreadsheetTabs(
   fetchFn: FetchFn,
@@ -40,8 +38,8 @@ export async function fetchSpreadsheetTabs(
 }
 
 /**
- * `spreadsheets.values.get`으로 탭의 값을 가져온다.
- * 범위는 A1:ZZ로 고정 — 스펙 시트 컬럼 수가 가변적이어서 여유를 둔다.
+ * `spreadsheets.values.get`으로 탭 값을 조회한다.
+ * 컬럼 수가 시트마다 달라 범위는 A1:ZZ로 여유 있게 고정.
  */
 export async function fetchSheetValues(
   fetchFn: FetchFn,
@@ -57,7 +55,7 @@ export async function fetchSheetValues(
   return body.values ?? [];
 }
 
-/** Sheets API의 비정상 응답을 표현하는 에러. 상태 코드 기반 재시도에 사용. */
+/** Sheets API 비정상 응답. `status`로 재시도 분기(401/403/429)를 구분한다. */
 export class SheetsApiError extends Error {
   constructor(
     readonly status: number,
@@ -70,10 +68,9 @@ export class SheetsApiError extends Error {
 
 /**
  * A1 노테이션의 탭 제목 쿼팅.
- *
- * 시트 이름이 ES 식별자 형태(`^[A-Za-z_]\w*$`)가 아니면 반드시 작은따옴표로
- * 감싸야 한다. 숫자로만 된 이름(`"2024"`)·공백 포함·한글 등은 unquoted일 때
- * Sheets API가 400을 돌려준다. 따옴표 자체는 두 개로 escape.
+ * ES 식별자 형태(`^[A-Za-z_]\w*$`)가 아닌 이름은 작은따옴표로 감싸야 한다.
+ * 숫자 전용("2024")·공백 포함·한글은 unquoted 전달 시 API가 400을 반환한다.
+ * 내부 `'`는 `''`로 escape.
  */
 function quoteA1SheetTitle(title: string): string {
   if (/^[A-Za-z_]\w*$/.test(title)) return title;
@@ -92,7 +89,7 @@ function buildRequestInit(token: string): RequestInit {
 
 async function throwIfNotOk(res: Response): Promise<void> {
   if (res.ok) return;
-  // body는 best-effort로 읽는다 — 이미 소비된 스트림이어도 무시.
+  // body 읽기는 best-effort — 이미 소비된 스트림이면 빈 문자열로 대체.
   const text = await res.text().catch(() => "");
   throw new SheetsApiError(res.status, text);
 }

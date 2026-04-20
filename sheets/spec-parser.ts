@@ -11,7 +11,7 @@ import {
 
 export interface ParseOptions {
   sheetName?: string;
-  /** 0-indexed. 스펙 시트는 2번째 행(인덱스 1)이 실제 헤더 */
+  /** 0-indexed. 스펙 시트는 2번째 행(인덱스 1)이 실제 헤더. */
   headerRowIndex?: number;
 }
 
@@ -19,10 +19,8 @@ const DEFAULT_HEADER_ROW = 1;
 
 /**
  * 스펙 시트 CSV 문자열을 EventSpec 레코드로 변환한다.
- *
- * 본 함수는 CSV 파일 업로드/클립보드 붙여넣기 같은 텍스트 입력 경로를
- * 위한 얇은 래퍼다. 프로덕션의 Sheets API 경로는 `parseSpecRows`에
- * `string[][]`를 직접 전달하여 CSV 직렬화/역직렬화 왕복을 피한다.
+ * CSV 업로드·클립보드 입력 경로용 얇은 래퍼이며, 프로덕션 Sheets API 경로는
+ * `parseSpecRows`에 `string[][]`를 직접 넘겨 CSV 직렬화 왕복을 피한다.
  */
 export function parseSpecCsv(
   csv: string,
@@ -33,14 +31,14 @@ export function parseSpecCsv(
 }
 
 /**
- * 스펙 시트의 행 배열(`string[][]`)을 EventSpec 레코드로 변환한다.
+ * 스펙 시트 행 배열을 EventSpec 레코드로 변환한다.
+ * Sheets API `values.get`이 돌려주는 `values`를 그대로 받을 수 있다.
  *
- * Sheets API `spreadsheets.values.get`이 돌려주는 `values`를 그대로 넘겨
- * 사용한다. 시트는 PM/DA가 자유롭게 편집하므로 파서는 관용적으로 동작한다:
- * - 컬럼은 위치가 아닌 **헤더 이름**으로 찾는다 (시트마다 컬럼 수가 다름).
- * - `to-be` 값을 우선하되 비어있으면 `as-is`로 fallback.
- * - `extension` 셀은 placeholder, 설명, 중복이 섞인 자유 텍스트.
- * - status 필터는 하지 않는다 — 개발 중(draft/broken) 행도 검증 대상.
+ * 시트는 PM/DA가 자유롭게 편집하므로 관용적으로 동작한다:
+ * - 컬럼은 위치가 아닌 **헤더 이름**으로 찾는다 (시트마다 컬럼 수 상이).
+ * - `to-be` 값 우선, 비어있으면 `as-is`로 fallback.
+ * - `extension` 셀은 placeholder·설명·중복이 섞인 자유 텍스트.
+ * - status 필터 없음 — draft/broken 행도 검증 대상에 포함.
  */
 export function parseSpecRows(
   rows: string[][],
@@ -68,7 +66,7 @@ export function parseSpecRows(
     const row = rows[i];
     if (!row) continue;
 
-    // 에디터에서 보이는 행 번호는 1-indexed
+    // 경고·리포트에 노출되는 행 번호는 시트 에디터와 동일한 1-indexed.
     const sourceRow = i + 1;
 
     if (isEmptyRow(row)) {
@@ -83,7 +81,7 @@ export function parseSpecRows(
     const amplitudeEventName = pickAmplitudeEventName(row, columns);
     const humanEventName = pickFirst(row, columns.eventName) ?? "";
 
-    // 섹션 앵커 행(한 셀에만 섹션 제목이 들어간 행)은 이벤트명이 없다
+    // 섹션 앵커 행(한 셀에만 섹션 제목)은 이벤트명 컬럼이 비어 있다.
     if (!amplitudeEventName && !humanEventName) {
       warnings.push({
         code: "skipped_anchor_row",
@@ -218,12 +216,12 @@ function pickToBe(
 }
 
 /**
- * Amplitude 이벤트명은 `__` 구분자가 없고 trailing `_`도 없는 마지막 `eventName` 컬럼 값이다.
- * 시트에는 보통 eventName 컬럼이 3개 있다:
- *   1) 사람이 읽는 이름: `click__banner`
- *   2) GA4 변형: `shopDetail_appDown_banner_click_` (trailing underscore)
+ * Amplitude 이벤트명 = `__` 구분자·trailing `_` 모두 없는 마지막 `eventName`.
+ * 시트에는 eventName 컬럼이 보통 3개 존재한다:
+ *   1) human-readable: `click__banner`
+ *   2) GA4 변형: `shopDetail_appDown_banner_click_`  (trailing `_`)
  *   3) Amplitude 최종: `shopDetail_appDown_banner_click`
- * 뒤에서부터 스캔하면서 (3)을 찾는다.
+ * (3)을 뒤에서부터 스캔해 찾는다.
  */
 function pickAmplitudeEventName(row: string[], columns: ColumnMap): string {
   for (let i = columns.eventName.length - 1; i >= 0; i--) {
@@ -236,7 +234,7 @@ function pickAmplitudeEventName(row: string[], columns: ColumnMap): string {
     return v;
   }
 
-  // 이상적 형태가 없으면, `__`가 없는 마지막 값이라도 돌려준다 (trailing `_` 제거 후)
+  // Fallback: `__`가 없는 마지막 값을 trailing `_` 제거 후 반환.
   for (let i = columns.eventName.length - 1; i >= 0; i--) {
     const idx = columns.eventName[i];
     if (idx === undefined) continue;
@@ -314,20 +312,20 @@ export function parseParams(
       const token = rawToken.trim();
       if (!token) continue;
 
-      // 공용 확장 참조: "[검색 관련 동작 공통 Extension]" 또는 "지도 관련 동작 공통 Extension"
+      // 공용 확장 참조 예: "[검색 관련 동작 공통 Extension]", "지도 관련 동작 공통 Extension".
       if (EXTENSION_REFERENCE_PATTERN.test(token)) {
         const cleaned = token.replace(/^\[|\]$/g, "").trim();
         pushRef(cleaned);
         continue;
       }
 
-      // 대괄호로 감싸진 미인식 토큰은 일단 참조로 보존해 이후에 보이도록
+      // 대괄호로 감싼 미인식 토큰은 참조 후보로 보존해 리포트에서 확인 가능하게 한다.
       if (/^\[.*\]$/.test(token)) {
         pushRef(token.replace(/^\[|\]$/g, "").trim());
         continue;
       }
 
-      // `$foo: description` → 콜론 앞의 키만 남김
+      // `$foo: description` → 콜론 앞 키만 남긴다.
       const key = extractParamKey(token);
       if (key) {
         pushParam(key);
@@ -349,7 +347,7 @@ export function parseParams(
   return { params, referencedExtensions };
 }
 
-/** 쉼표 또는 줄바꿈 기준으로 토큰 분리. 셀 내부에 줄바꿈이 섞일 수 있어 둘 다 지원 */
+/** 셀 내부에 줄바꿈이 섞일 수 있어 쉼표·줄바꿈 모두를 구분자로 취급한다. */
 function splitParamCell(cell: string): string[] {
   return cell
     .replace(/\r/g, "")
@@ -358,16 +356,15 @@ function splitParamCell(cell: string): string[] {
     .filter(Boolean);
 }
 
-/** `$shopRef`, `$feedback_type: positive / negative` 등에서 키만 추출 */
+/** `$shopRef`, `$feedback_type: positive / negative` 등에서 키만 추출한다. */
 function extractParamKey(token: string): string | undefined {
   let t = token.trim();
-  // 콜론 뒤 설명은 버림
   const colonIdx = t.indexOf(":");
   if (colonIdx >= 0) t = t.slice(0, colonIdx).trim();
   if (!t) return undefined;
   if (!t.startsWith("$")) return undefined;
   t = t.slice(1).trim();
-  // `restaurantItem.shopRef` 같은 dotted path는 원형 보존
+  // `restaurantItem.shopRef` 같은 dotted path는 원형 그대로 유지한다.
   if (!/^[A-Za-z_][\w.]*$/.test(t)) return undefined;
   return t;
 }
