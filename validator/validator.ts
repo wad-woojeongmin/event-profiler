@@ -13,9 +13,11 @@ import type {
 /**
  * 스펙·수집 이벤트 비교 검증의 단일 진입점.
  *
- * M8 리포트 렌더링의 입력(`ValidationReport`)을 생성한다. 동일 입력 → 동일 출력의
- * 순수 함수로 유지(`browser.*`, I/O, 시간·난수 금지). 규칙은 `rules` 인자로 주입받으며
- * 기본 세트는 `rules/index.ts`의 `defaultRules`를 사용한다.
+ * M8 리포트 렌더링의 입력(`ValidationReport`)을 생성한다. 매칭·규칙 평가·상태 결정·
+ * stats 집계 로직은 참조 투명(동일 입력 → 동일 결과)하게 유지하며 `browser.*`/I/O/난수
+ * 접근을 금지한다. 단 `report.generatedAt`만은 예외로 `Date.now()` 호출 시각 스탬프이며,
+ * 이 필드를 비교·검증 로직 어디에서도 참조하지 않아 결과 동등성에는 영향이 없다.
+ * (시간 고정 테스트가 필요하면 `vi.useFakeTimers()`로 랩핑.)
  *
  * ### 매칭
  * - 키: `CapturedEvent.eventName === EventSpec.amplitudeEventName` 완전 일치
@@ -42,7 +44,8 @@ import type {
  * @param captured         세션 중 수집된 이벤트 전체
  * @param targetEventNames Popup에서 선택된 스펙 이름 목록(R5 판정 기준)
  * @param session          녹화 세션 메타. `session.id`가 `report.sessionId`로 반영
- * @param rules            주입할 규칙 세트. 기본값은 `defaultRules`
+ * @param rules            주입 필수. 표준 세트는 `rules/index.ts`의 `defaultRules`를
+ *                         import해 전달(TS 기본 인자 아님)
  * @returns                M8 리포트가 소비할 `ValidationReport`
  */
 export function validate(

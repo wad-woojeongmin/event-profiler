@@ -11,7 +11,7 @@ export const SUSPECT_DUPLICATE_THRESHOLD_MS = 500;
  * - `ctx.captured`는 이미 스펙 이름으로 필터되어 있어 규칙 내 이름 비교 불필요.
  * - 시간순 정렬 후 인접 쌍을 확인 — N연속 발생 시 N-1개의 이슈가 생성된다.
  * - severity는 `warning`이지만 `determineStatus`에서 `suspect_duplicate` 상태로 승격되어
- *   M8 리포트의 과수집 전용 섹션으로 분리된다(일반 `fail`과 섞이지 않음).
+ *   `stats.suspectDuplicate`로 별도 집계된다. M8 리포트에서 일반 `fail`과 분리 표기할 수 있다.
  */
 export const suspectDuplicateRule: ValidationRule = {
   code: "suspect_duplicate",
