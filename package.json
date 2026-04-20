@@ -12,6 +12,8 @@
     "zip": "wxt zip",
     "zip:firefox": "wxt zip -b firefox",
     "compile": "tsc --noEmit",
+    "demo": "vite --config demo/vite.config.ts",
+    "demo:build": "vite build --config demo/vite.config.ts",
     "postinstall": "wxt prepare"
   },
   "dependencies": {
@@ -25,8 +27,10 @@
   "devDependencies": {
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
     "@wxt-dev/module-react": "^1.1.5",
     "typescript": "^5.9.3",
+    "vite": "^8.0.8",
     "vitest": "^4.1.4",
     "wxt": "^0.20.25"
   }
