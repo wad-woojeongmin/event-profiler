@@ -20,7 +20,7 @@ const OAUTH_SCOPES = [
 ] as const;
 
 /** 429 재시도 전 대기 시간(ms). 401/403은 백오프 없이 즉시 재발급·재시도. */
-const RETRY_BACKOFF_MS = 1_000;
+const RATE_LIMIT_BACKOFF_MS = 1_000;
 
 /** 토큰 발급·폐기 경계. 테스트에서 `browser.identity` 없이 주입 가능. */
 export interface TokenProvider {
@@ -40,6 +40,10 @@ export interface GoogleSheetsAdapterDeps {
   sleepFn?: (ms: number) => Promise<void>;
 }
 
+/**
+ * 기본 어댑터 조립. `fetch`·`TokenProvider`·`sleep`을 주입 가능하게 두어
+ * `browser.identity` 없이도 유닛 테스트에서 실구현을 그대로 검증한다.
+ */
 export function createGoogleSheetsSource(
   deps: GoogleSheetsAdapterDeps = {},
 ): SheetsSource {
@@ -51,7 +55,7 @@ export function createGoogleSheetsSource(
   /**
    * 토큰 발급 후 `job`을 실행한다. 재시도 정책은 "단일 분기 1회 한정":
    * - 401/403 → 토큰 폐기 + interactive 재발급 후 1회 재시도
-   * - 429    → `RETRY_BACKOFF_MS` 대기 후 1회 재시도
+   * - 429    → `RATE_LIMIT_BACKOFF_MS` 대기 후 1회 재시도
    * - 재시도 결과도 실패면 원인 에러 전파 (무한 루프 방지)
    *
    * 최초 토큰은 `interactive=false`로 요청해 불필요한 OAuth 팝업을 피하고,
@@ -70,7 +74,7 @@ export function createGoogleSheetsSource(
         return await job(token);
       }
       if (isRateLimit(err)) {
-        await sleepFn(RETRY_BACKOFF_MS);
+        await sleepFn(RATE_LIMIT_BACKOFF_MS);
         return await job(token);
       }
       throw err;

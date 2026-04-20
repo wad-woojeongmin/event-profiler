@@ -1,5 +1,6 @@
 // sheets 모듈 공개 API. 외부 모듈은 이 파일만 import한다.
-// 어댑터·내부 API 헬퍼는 비공개로 유지한다.
+// 팩토리(`createGoogleSheetsSource`)와 포트·상수·파서는 re-export하고,
+// 기본 인스턴스(`googleSheetsSource`)·API 헬퍼는 파일 내부로 숨긴다.
 
 export type { SheetTab, SheetsSource } from "./ports/sheets-source.ts";
 export { SPEC_SHEET_URL, SPEC_SPREADSHEET_ID } from "./constants.ts";

@@ -14,7 +14,7 @@ export interface SheetTab {
  * 스펙 시트의 탭 목록/본문을 읽어오는 포트.
  *
  * - spreadsheetId는 어댑터가 `SPEC_SPREADSHEET_ID`로 고정하므로 호출자는 몰라도 된다.
- * - 인증 만료(401/403)·429 레이트 리밋은 어댑터가 1회 재시도로 흡수한다.
+ * - 401/403은 재인증, 429는 백오프로 각각 1회 재시도한다 (어댑터 책임).
  */
 export interface SheetsSource {
   /** 탭 목록을 반환한다. */
