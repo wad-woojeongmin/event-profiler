@@ -7,7 +7,6 @@
 // `ReportAssembler.run()`.
 
 import type { CapturedEvent } from "@/types/event.ts";
-import type { RecordingSessionState } from "@/types/messages.ts";
 import type { ReportData } from "@/types/storage.ts";
 import { defaultRules } from "@/validator/index.ts";
 import type { ScreenshotReader } from "@/background/index.ts";
@@ -15,6 +14,7 @@ import type { ScreenshotReader } from "@/background/index.ts";
 import { assemble } from "./assemble.ts";
 import { blobToDataUrl } from "./blob-to-data-url.ts";
 import type { ReportWriter } from "./ports/report-writer.ts";
+import type { SessionSource } from "./ports/session-source.ts";
 import type { SpecsCacheReader } from "./ports/specs-cache-reader.ts";
 
 export interface ReportAssemblerDeps {
@@ -22,10 +22,7 @@ export interface ReportAssemblerDeps {
   screenshotReader: ScreenshotReader;
   reportWriter: ReportWriter;
   /** 현재 세션 이벤트 + 세션 메타 + targetEventNames 공급자. */
-  sessionSource: {
-    getState(): Promise<RecordingSessionState>;
-    listCurrentEvents(): Promise<CapturedEvent[]>;
-  };
+  sessionSource: SessionSource;
 }
 
 export interface ReportAssembler {

@@ -14,3 +14,4 @@ export { createWxtSpecsCacheReader } from "./adapters/wxt-specs-cache-reader.ts"
 export { createWxtReportWriter } from "./adapters/wxt-report-writer.ts";
 export type { SpecsCacheReader } from "./ports/specs-cache-reader.ts";
 export type { ReportWriter } from "./ports/report-writer.ts";
+export type { SessionSource } from "./ports/session-source.ts";

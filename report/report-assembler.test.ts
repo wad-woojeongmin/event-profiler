@@ -7,6 +7,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { ScreenshotReader } from "@/background/index.ts";
+import type { CapturedEvent } from "@/types/event.ts";
 import type { RecordingSessionState } from "@/types/messages.ts";
 import type { ReportData, SpecsCachePayload } from "@/types/storage.ts";
 import {
@@ -17,6 +18,7 @@ import {
 
 import { createReportAssembler } from "./report-assembler.ts";
 import type { ReportWriter } from "./ports/report-writer.ts";
+import type { SessionSource } from "./ports/session-source.ts";
 import type { SpecsCacheReader } from "./ports/specs-cache-reader.ts";
 
 function makeWriter(): ReportWriter & { last: ReportData | null } {
@@ -45,6 +47,16 @@ function makeScreenshotReader(
   };
 }
 
+function makeSessionSource(
+  state: RecordingSessionState,
+  events: CapturedEvent[] = [],
+): SessionSource {
+  return {
+    async getState() { return state; },
+    async listCurrentEvents() { return events; },
+  };
+}
+
 describe("createReportAssembler", () => {
   it("세션이 없으면 null 반환 + reportData write하지 않음", async () => {
     const writer = makeWriter();
@@ -52,12 +64,11 @@ describe("createReportAssembler", () => {
       specsCacheReader: makeSpecsReader([makeSpec()]),
       screenshotReader: makeScreenshotReader({}),
       reportWriter: writer,
-      sessionSource: {
-        async getState(): Promise<RecordingSessionState> {
-          return { session: null, capturedCount: 0, targetEventNames: [] };
-        },
-        async listCurrentEvents() { return []; },
-      },
+      sessionSource: makeSessionSource({
+        session: null,
+        capturedCount: 0,
+        targetEventNames: [],
+      }),
     });
     expect(await assembler.run()).toBeNull();
     expect(writer.last).toBeNull();
@@ -70,16 +81,11 @@ describe("createReportAssembler", () => {
       specsCacheReader: makeSpecsReader(null),
       screenshotReader: makeScreenshotReader({}),
       reportWriter: writer,
-      sessionSource: {
-        async getState() {
-          return {
-            session,
-            capturedCount: 0,
-            targetEventNames: session.targetEventNames,
-          };
-        },
-        async listCurrentEvents() { return []; },
-      },
+      sessionSource: makeSessionSource({
+        session,
+        capturedCount: 0,
+        targetEventNames: session.targetEventNames,
+      }),
     });
     expect(await assembler.run()).toBeNull();
     expect(writer.last).toBeNull();
@@ -101,16 +107,14 @@ describe("createReportAssembler", () => {
       ]),
       screenshotReader: makeScreenshotReader({ s1: blob }),
       reportWriter: writer,
-      sessionSource: {
-        async getState() {
-          return {
-            session,
-            capturedCount: 1,
-            targetEventNames: session.targetEventNames,
-          };
+      sessionSource: makeSessionSource(
+        {
+          session,
+          capturedCount: 1,
+          targetEventNames: session.targetEventNames,
         },
-        async listCurrentEvents() { return [event]; },
-      },
+        [event],
+      ),
     });
 
     const data = await assembler.run();
@@ -134,16 +138,14 @@ describe("createReportAssembler", () => {
       ]),
       screenshotReader: makeScreenshotReader({ ok: good }),
       reportWriter: writer,
-      sessionSource: {
-        async getState() {
-          return {
-            session,
-            capturedCount: 2,
-            targetEventNames: session.targetEventNames,
-          };
+      sessionSource: makeSessionSource(
+        {
+          session,
+          capturedCount: 2,
+          targetEventNames: session.targetEventNames,
         },
-        async listCurrentEvents() { return events; },
-      },
+        events,
+      ),
     });
 
     const data = await assembler.run();

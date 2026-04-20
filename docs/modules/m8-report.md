@@ -104,10 +104,10 @@ export async function downloadReportAsHtml(
 
 ### Phase 1
 
-- [ ] `generateReport` 핸들러가 specs(`local:specsCache`) + 세션 이벤트 + 스크린샷 + `validate()`로 `ValidationReport`를 어셈블하여 `local:reportData`에 write
-- [ ] 순수 `assemble` 함수에 대한 단위 테스트 (I/O 없이 값 비교)
-- [ ] SW 핸들러 통합 테스트 (`fakeBrowser.reset()` + in-memory ScreenshotReader mock)
-- [ ] `local:specsCache`가 비어있으면 `ReportData` 없이 명확한 에러(또는 no-op)로 귀환
+- [x] `generateReport` 핸들러가 specs(`local:specsCache`) + 세션 이벤트 + 스크린샷 + `validate()`로 `ValidationReport`를 어셈블하여 `local:reportData`에 write
+- [x] 순수 `assemble` 함수에 대한 단위 테스트 (I/O 없이 값 비교)
+- [x] SW 핸들러 통합 테스트 (`fakeBrowser.reset()` + in-memory ScreenshotReader mock)
+- [x] `local:specsCache`가 비어있으면 `ReportData` 없이 명확한 에러(또는 no-op)로 귀환
 
 ### Phase 2
 
