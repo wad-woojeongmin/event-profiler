@@ -24,6 +24,11 @@ import type {
  *   2) `suspect_duplicate` 이슈 존재 → `suspect_duplicate`
  *   3) error/warning severity 이슈 존재 → `fail`
  *   4) 그 외 → `pass`
+ * - **stats 카운트는 최종 status 하나에만 귀속**. 예: `suspect_duplicate` 상태이면서
+ *   `missing_param` 이슈를 함께 가진 스펙은 `stats.suspectDuplicate`만 증가하고
+ *   `stats.fail`은 증가하지 않는다. 이로써 `pass + fail + notCollected +
+ *   suspectDuplicate === totalSpecs` 불변식을 보존해 M8 리포트 집계/차트가 단순해진다.
+ *   세부 이슈는 `result.issues[]`로 그대로 노출되므로 정보 손실은 없다.
  *
  * @param specs 대상 스펙 목록
  * @param captured 세션 중 수집된 이벤트 전체

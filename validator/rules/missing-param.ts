@@ -14,6 +14,8 @@ export const missingParamRule: ValidationRule = {
     if (ctx.spec.params.length === 0) return [];
 
     const issues: ValidationIssue[] = [];
+    // 시트 편집 실수로 동일 key가 `spec.params`에 중복 등장하는 경우를 막는 방어막.
+    // 파서는 dedupe하지만 포트 계약이 unique를 보장하지 않으므로 규칙 계층에서도 방어.
     const reported = new Set<string>();
     for (const key of ctx.spec.params) {
       const missingInAny = ctx.captured.some(

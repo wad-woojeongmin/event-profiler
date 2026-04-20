@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { defaultRules } from "./rules/index.ts";
-import { makeEvent, makeSession, makeSpec } from "./test-fixtures.ts";
+import {
+  makeEvent,
+  makeSession,
+  makeSpec,
+} from "./test-fixtures.test-util.ts";
 import { validate } from "./validator.ts";
 
 describe("validate — 통합", () => {

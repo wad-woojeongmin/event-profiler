@@ -13,6 +13,7 @@ export const emptyParamRule: ValidationRule = {
     if (ctx.spec.params.length === 0) return [];
 
     const issues: ValidationIssue[] = [];
+    // `spec.params`에 동일 key가 중복 등장할 경우를 막는 방어막 (R2와 동일 이유).
     const reported = new Set<string>();
     for (const key of ctx.spec.params) {
       const emptyInAny = ctx.captured.some((event) => {
