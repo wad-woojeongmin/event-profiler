@@ -117,6 +117,8 @@ export interface BridgeMessage {
 // content script ↔ background — @webext-core/messaging ProtocolMap
 export interface ExtensionProtocol {
   captureEvent(event: Omit<CapturedEvent, "id" | "screenshotId">): void;
+  /** content script가 자신의 tabId를 알아내는 유일한 경로. background가 sender.tab.id로 응답. */
+  getMyTabId(): number;
   startRecording(input: { targetEventNames: string[]; tabId: number }): void;
   stopRecording(): void;
   getSessionState(): RecordingSessionState;

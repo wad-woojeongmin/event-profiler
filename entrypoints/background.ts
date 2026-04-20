@@ -66,6 +66,13 @@ export default defineBackground(() => {
     await controller.captureEvent(data);
   });
 
+  // content script는 자신의 tabId를 직접 알 수 없어(`browser.tabs.getCurrent()`
+  // 미지원) sender.tab.id를 역질의한다. devtools 등 탭이 없는 컨텍스트에서
+  // 호출되면 -1 — 호출측이 이를 "unknown"으로 해석한다.
+  onMessage("getMyTabId", ({ sender }) => {
+    return sender.tab?.id ?? -1;
+  });
+
   onMessage("startRecording", async ({ data }) => {
     await controller.startRecording({
       targetEventNames: data.targetEventNames,

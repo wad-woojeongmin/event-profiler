@@ -33,6 +33,16 @@ export interface ExtensionProtocol {
   /** M2 → M3. 수집된 단일 이벤트 전달. fire-and-forget. */
   captureEvent(event: Omit<CapturedEvent, "id" | "screenshotId">): void;
 
+  /**
+   * M2 → M3. 호출한 content script가 속한 탭의 id를 조회.
+   *
+   * content script는 자신의 tabId를 네이티브로 알 수 없으므로
+   * (`browser.tabs.getCurrent()` 미지원), background가 `sender.tab.id`를
+   * 되돌려준다. 결과는 content script가 캐시해 이후 `captureEvent`의 `tabId`
+   * 필드를 채운다. 탭이 아닌 곳(devtools 등)에서 호출되면 -1.
+   */
+  getMyTabId(): number;
+
   /** M4 → M3. 녹화 시작. 이전 세션이 있으면 먼저 clear. */
   startRecording(input: { targetEventNames: string[]; tabId: number }): void;
 
