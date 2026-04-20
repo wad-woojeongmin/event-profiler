@@ -27,6 +27,8 @@ export function parseBridgeMessage(
   if (eventOrigin !== expectedOrigin) return null;
   if (!isRecord(data)) return null;
   if (data["source"] !== BRIDGE_SOURCE) return null;
+  // 정확 일치 정책: Phase 1은 단일 버전만 지원하므로 v2 메시지도 drop한다.
+  // 멀티 버전 공존이 필요해지면 `version <= BRIDGE_VERSION`으로 완화.
   if (data["version"] !== BRIDGE_VERSION) return null;
   const payload = data["payload"];
   if (!isRecord(payload)) return null;

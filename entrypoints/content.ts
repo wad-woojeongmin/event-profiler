@@ -22,6 +22,11 @@ export default defineContentScript({
     const forwarder = createMessagingEventForwarder();
     const tabIdResolver = createMessagingTabIdResolver();
 
+    // SW 콜드부트와 초기 이벤트 버스트가 겹치면 첫 몇 건이 roundtrip을 순차
+    // 대기한다. 페이지 로드 시점에 선행 조회로 캐시를 덥혀 지연을 흡수.
+    // 실패해도 어댑터가 캐시를 비워 재시도 가능하므로 부작용 없음.
+    void tabIdResolver.get();
+
     receiver.subscribe(ctx, (message) => {
       // ctx.isValid 체크로 확장 무효화 이후의 runtime 호출을 차단한다.
       if (!ctx.isValid) return;

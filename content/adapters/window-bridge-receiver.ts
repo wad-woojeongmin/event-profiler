@@ -36,8 +36,9 @@ export function createWindowBridgeReceiver(
       ctx.addEventListener(window, "message", listener);
 
       return () => {
-        // 수동 해제 경로. `ctx.addEventListener`가 반환값이 없으므로 동일
-        // 리스너 참조로 removeEventListener 호출 — `ctx`의 자동 정리와 양립.
+        // 수동 해제는 **fallback** 경로 — 일반적인 정리는 `ctx` 무효화가
+        // 담당한다. 수동 해제 후 ctx가 무효화되면 이미 제거된 리스너를 다시
+        // removeEventListener 호출하지만 DOM 스펙상 no-op이라 안전.
         window.removeEventListener("message", listener);
       };
     },
