@@ -9,6 +9,9 @@ export { createMessagingEventForwarder } from "./adapters/messaging-event-forwar
 // `UNKNOWN_TAB_ID` 상수는 어댑터 내부 sentinel이며 외부 소비자가 없다. M4/M8이
 // 필요로 하는 시점에 types/로 승격해 공유(지금 재수출은 dead surface).
 export { createMessagingTabIdResolver } from "./adapters/messaging-tab-id-resolver.ts";
+// 호스트 매치 정책은 manifest(`entrypoints/content.ts`)와 popup("지원 페이지"
+// 판정)의 공통 소스. 둘 다 이 심볼을 참조해 드리프트를 구조적으로 차단한다.
+export { CATCHTABLE_MATCH_PATTERN, isSupportedUrl } from "./host-match.ts";
 export type { BridgeReceiver } from "./ports/bridge-receiver.ts";
 export type { EventForwarder } from "./ports/event-forwarder.ts";
 export type { TabIdResolver } from "./ports/tab-id-resolver.ts";

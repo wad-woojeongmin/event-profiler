@@ -6,15 +6,17 @@
 // 런타임 코드 제약).
 
 import {
+  CATCHTABLE_MATCH_PATTERN,
   createMessagingEventForwarder,
   createMessagingTabIdResolver,
   createWindowBridgeReceiver,
 } from "@/content/index.ts";
 
 export default defineContentScript({
-  // 초기 매치 host. M4 설정 UI가 확장되면 `wxt.config.ts`의 manifest와 함께
-  // 조정. `document_start`에서 등록해 웹앱 초기 postMessage도 놓치지 않는다.
-  matches: ["https://*.catchtable.co.kr/*"],
+  // 호스트 목록은 `content/host-match.ts`가 단일 소스. popup의 "지원 페이지"
+  // 판정과 항상 함께 갱신해 드리프트를 방지한다.
+  // `document_start`에서 등록해 웹앱 초기 postMessage도 놓치지 않는다.
+  matches: [CATCHTABLE_MATCH_PATTERN],
   runAt: "document_start",
 
   main(ctx) {
