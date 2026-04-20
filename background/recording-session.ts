@@ -65,26 +65,34 @@ export function createRecordingSession(
     return next;
   };
 
-  const clearSession = (): Promise<void> =>
-    enqueue(async () => {
-      await deps.eventWriter.clear();
-      await deps.screenshotWriter.clear();
-      await deps.sessionStore.setRecording(null);
-      deps.scheduler.reset();
-    });
+  // clearSession의 "본문"만 담아둔 내부 helper. 호출자가 이미 큐 안이면
+  // 이걸 쓰고, 외부에서 호출할 때만 아래 `clearSession`으로 큐에 넣는다.
+  // (큐에 들어간 태스크 안에서 다시 큐에 넣으면 자신을 기다리는 데드락이 된다.)
+  const clearSessionUnsafe = async (): Promise<void> => {
+    await deps.eventWriter.clear();
+    await deps.screenshotWriter.clear();
+    await deps.sessionStore.setRecording(null);
+    deps.scheduler.reset();
+  };
+
+  const clearSession = (): Promise<void> => enqueue(clearSessionUnsafe);
 
   return {
     async startRecording(input) {
-      await clearSession();
-      const session: RecordingSession = {
-        id: uuidFn(),
-        startedAt: nowFn(),
-        endedAt: undefined,
-        tabId: input.tabId,
-        targetEventNames: [...input.targetEventNames],
-        capturedCount: 0,
-      };
-      await deps.sessionStore.setRecording(session);
+      // 전체를 단일 태스크로 묶어 `clear → new session 세팅` 사이로 captureEvent가
+      // 끼어들어 `session=null`을 보고 drop되는 경계 레이스를 막는다.
+      return enqueue(async () => {
+        await clearSessionUnsafe();
+        const session: RecordingSession = {
+          id: uuidFn(),
+          startedAt: nowFn(),
+          endedAt: undefined,
+          tabId: input.tabId,
+          targetEventNames: [...input.targetEventNames],
+          capturedCount: 0,
+        };
+        await deps.sessionStore.setRecording(session);
+      });
     },
 
     async stopRecording() {

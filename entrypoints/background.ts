@@ -7,14 +7,14 @@
 
 import { browser } from "wxt/browser";
 
+import { createIdbEventStore } from "@/background/adapters/idb-event-store.ts";
+import { createIdbScreenshotStore } from "@/background/adapters/idb-screenshot-store.ts";
+import { createTabScreenshotCapture } from "@/background/adapters/tab-screenshot-capture.ts";
+import { createWxtSessionStore } from "@/background/adapters/wxt-session-store.ts";
+import { createWxtSettingsStore } from "@/background/adapters/wxt-settings-store.ts";
 import {
-  createIdbEventStore,
-  createIdbScreenshotStore,
   createRecordingSession,
   createScreenshotScheduler,
-  createTabScreenshotCapture,
-  createWxtSessionStore,
-  createWxtSettingsStore,
   type RecordingSessionController,
 } from "@/background/index.ts";
 import { onMessage } from "@/messaging/extension-messaging.ts";
@@ -88,9 +88,9 @@ export default defineBackground(() => {
   });
 
   onMessage("generateReport", async () => {
-    // M8이 실제 HTML 생성·뷰어 오픈을 담당. 이 지점에서는 현재 세션 스냅샷을
-    // 만들 준비(이벤트 목록 확보)만 해두어 M8이 이어받기 쉽게 한다.
-    await controller.listCurrentEvents();
+    // TODO(m8): 리포트 HTML 렌더 + 새 탭 오픈. 이벤트 목록은
+    // `controller.listCurrentEvents()`로 확보 가능하고, 스크린샷은
+    // `screenshotStore.load(id)`로 base64 인라인할 수 있다.
   });
 });
 

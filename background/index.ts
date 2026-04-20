@@ -1,7 +1,8 @@
-// M3 공개 API.
+// M3 공개 API — 포트 타입과 순수 팩토리만 노출.
 //
-// 타 모듈(M4 popup, M8 report, 엔트리포인트)은 이 파일만 import 한다. 구현
-// 상세(IndexedDB·wxt/storage·browser API)는 외부로 새지 않는다.
+// 어댑터 팩토리(`createIdb*`, `createWxt*`, `createTab*`)는 엔트리포인트 조립에서만
+// 쓰이므로 여기서 re-export하지 않는다. 타 모듈(M4 popup, M8 report)은 메시지로
+// 상호작용하며, 만약 타입이 필요하면 포트만 import 한다(DIP).
 
 export type {
   EventReader,
@@ -29,8 +30,3 @@ export {
   type ScreenshotScheduler,
   type ScreenshotSchedulerDeps,
 } from "./screenshot-scheduler.ts";
-export { createIdbEventStore } from "./adapters/idb-event-store.ts";
-export { createIdbScreenshotStore } from "./adapters/idb-screenshot-store.ts";
-export { createTabScreenshotCapture } from "./adapters/tab-screenshot-capture.ts";
-export { createWxtSessionStore } from "./adapters/wxt-session-store.ts";
-export { createWxtSettingsStore } from "./adapters/wxt-settings-store.ts";

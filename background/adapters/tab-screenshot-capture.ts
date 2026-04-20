@@ -19,6 +19,9 @@ export function createTabScreenshotCapture(): ScreenshotCapture {
         const tab = await browser.tabs.get(tabId);
         // `windowId` 없음 = 팝아웃·탭 그룹 이동 등으로 소실. 캡처 불가.
         if (typeof tab.windowId !== "number") return null;
+        // `captureVisibleTab`은 지정 윈도우의 "현재 활성 탭"을 찍는다. 대상 탭이
+        // 백그라운드면 엉뚱한 페이지가 저장되므로 호출 자체를 스킵한다.
+        if (!tab.active) return null;
         const dataUrl = await browser.tabs.captureVisibleTab(tab.windowId, {
           format: "jpeg",
           quality: 60,
@@ -36,6 +39,7 @@ export function createTabScreenshotCapture(): ScreenshotCapture {
 
 /** `data:image/jpeg;base64,...` 문자열을 Blob으로 변환(SW에서 `fetch(dataUrl)` 대신 수동 디코드). */
 function dataUrlToBlob(dataUrl: string): Blob {
+  if (!dataUrl.startsWith("data:")) throw new Error("invalid data URL");
   const comma = dataUrl.indexOf(",");
   if (comma < 0) throw new Error("invalid data URL");
   const header = dataUrl.slice(5, comma); // "image/jpeg;base64"
