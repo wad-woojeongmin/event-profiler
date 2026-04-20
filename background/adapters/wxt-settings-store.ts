@@ -2,7 +2,7 @@
 
 import { storage } from "wxt/utils/storage";
 
-import type { EventSpec } from "@/types/spec.ts";
+import { SPECS_CACHE_KEY, type SpecsCachePayload } from "@/types/storage.ts";
 
 import {
   DEFAULT_SETTINGS,
@@ -15,10 +15,10 @@ const settingsItem = storage.defineItem<Settings>("local:settings", {
 });
 
 // 스펙 캐시는 "비어있음"을 명시적 상태(null)로 다루므로 기본값도 null.
-const specsCacheItem = storage.defineItem<EventSpec[] | null>(
-  "local:specsCache",
-  { fallback: null },
-);
+// 키·타입은 `types/storage.ts`의 공용 스키마를 재사용(드리프트 차단).
+const specsCacheItem = storage.defineItem<SpecsCachePayload>(SPECS_CACHE_KEY, {
+  fallback: null,
+});
 
 export function createWxtSettingsStore(): SettingsStore {
   return {

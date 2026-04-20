@@ -62,6 +62,7 @@ export interface SheetsSource {
    - `values: string[][]`를 그대로 반환. CSV 직렬화하지 않음 (M6 `parseSpecRows`가 rows를 직접 받음)
 3. **캐시**
    - 파싱된 `EventSpec[]`의 `local:specsCache`(02-contracts) 기록은 **소비자(M3/팝업) 책임**. M5는 파서에 의존하지 않도록 캐싱을 수행하지 않는다. (M5 내부 rows 캐시가 필요해지면 read API를 포함해 별도 PR에서 도입)
+   - **`local:specsCache`는 공용 스토리지 키**로 승격됨(02-contracts §공용 스토리지 키). 소유자: M5/M3 SettingsStore, 소비자: M5/popup + M8/SW. 키 이름·스키마 변경은 M8·popup 양측 영향을 플래그해야 한다. 스키마 타입은 `types/storage.ts`의 `SpecsCachePayload` 단일 정의를 재사용.
 4. **에러 처리**
    - 401/403: 위 §인증 경로로 자동 복구
    - 404: 상수의 `SPEC_SPREADSHEET_ID`가 잘못되었거나 사용자의 시트 접근 권한 부족 — 시트 공유 설정 안내

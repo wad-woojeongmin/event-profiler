@@ -18,6 +18,11 @@ import {
   type RecordingSessionController,
 } from "@/background/index.ts";
 import { onMessage } from "@/messaging/extension-messaging.ts";
+import {
+  createReportAssembler,
+  createWxtReportWriter,
+  createWxtSpecsCacheReader,
+} from "@/report/index.ts";
 
 /** 배지 색: 녹화 중은 빨강, 완료는 초록. */
 const BADGE_REC_TEXT = "REC";
@@ -42,6 +47,18 @@ export default defineBackground(() => {
     eventReader: eventStore,
     screenshotWriter: screenshotStore,
     scheduler,
+  });
+
+  // M8 리포트 어셈블러. specsCache read + 세션 이벤트 + 스크린샷 base64 변환 +
+  // validate() 결과를 `local:reportData`에 write한다. 팝업(M4)이 이를 구독해 렌더.
+  const reportAssembler = createReportAssembler({
+    specsCacheReader: createWxtSpecsCacheReader(),
+    screenshotReader: screenshotStore,
+    reportWriter: createWxtReportWriter(),
+    sessionSource: {
+      getState: () => controller.getState(),
+      listCurrentEvents: () => controller.listCurrentEvents(),
+    },
   });
 
   /** 현재 세션 상태에 맞춰 action 배지를 갱신. */
@@ -97,9 +114,9 @@ export default defineBackground(() => {
   });
 
   onMessage("generateReport", async () => {
-    // TODO(m8): 리포트 HTML 렌더 + 새 탭 오픈. 이벤트 목록은
-    // `controller.listCurrentEvents()`로 확보 가능하고, 스크린샷은
-    // `screenshotStore.load(id)`로 base64 인라인할 수 있다.
+    // Phase 1: ValidationReport + screenshotDataUrls를 `local:reportData`에 write.
+    // 뷰어 UI는 M4 popup이 같은 키를 구독해 렌더(다운로드는 Phase 2).
+    await reportAssembler.run();
   });
 });
 
