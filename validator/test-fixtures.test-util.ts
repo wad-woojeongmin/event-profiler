@@ -2,8 +2,12 @@ import type { CapturedEvent, RecordingSession } from "../types/event.ts";
 import type { EventSpec } from "../types/spec.ts";
 
 /**
- * 테스트용 빌더. 각 테스트가 관심 있는 필드만 override하여 사용한다.
- * 프로덕션 코드에서는 import하지 말 것.
+ * 테스트 전용 도메인 객체 빌더.
+ *
+ * @remarks
+ * - 각 테스트는 관심 있는 필드만 override하여 사용한다(나머지는 안전한 기본값).
+ * - 파일명 `.test-util.ts` suffix는 프로덕션 번들 정적 격리를 위한 경계 표식.
+ *   프로덕션 코드에서 import 금지.
  */
 
 export function makeSpec(overrides: Partial<EventSpec> = {}): EventSpec {

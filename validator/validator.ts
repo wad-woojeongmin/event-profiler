@@ -11,30 +11,42 @@ import type {
 } from "./ports/validation-rule.ts";
 
 /**
- * 녹화 세션을 기준으로 `EventSpec[]`와 `CapturedEvent[]`를 비교해
- * `ValidationReport`를 생성한다.
+ * 스펙·수집 이벤트 비교 검증의 단일 진입점.
  *
- * 순수 함수로 유지(OCP). 규칙은 `rules` 인자로 주입받으며, 기본 세트는
- * `validator/rules/index.ts`의 `defaultRules`를 사용한다.
+ * M8 리포트 렌더링의 입력(`ValidationReport`)을 생성한다. 매칭·규칙 평가·상태 결정·
+ * stats 집계 로직은 참조 투명(동일 입력 → 동일 결과)하게 유지하며 `browser.*`/I/O/난수
+ * 접근을 금지한다. 단 `report.generatedAt`만은 예외로 `Date.now()` 호출 시각 스탬프이며,
+ * 이 필드를 비교·검증 로직 어디에서도 참조하지 않아 결과 동등성에는 영향이 없다.
+ * (시간 고정 테스트가 필요하면 `vi.useFakeTimers()`로 랩핑.)
  *
- * - 매칭 키: `CapturedEvent.eventName === EventSpec.amplitudeEventName`
- * - 예외 이벤트(R5)는 `report.unexpected`에 집계 — 규칙 플러그인과 별개 경로.
- * - 상태 결정 우선순위:
- *   1) captured 0건 → `not_collected`
- *   2) `suspect_duplicate` 이슈 존재 → `suspect_duplicate`
- *   3) error/warning severity 이슈 존재 → `fail`
- *   4) 그 외 → `pass`
- * - **stats 카운트는 최종 status 하나에만 귀속**. 예: `suspect_duplicate` 상태이면서
- *   `missing_param` 이슈를 함께 가진 스펙은 `stats.suspectDuplicate`만 증가하고
- *   `stats.fail`은 증가하지 않는다. 이로써 `pass + fail + notCollected +
- *   suspectDuplicate === totalSpecs` 불변식을 보존해 M8 리포트 집계/차트가 단순해진다.
- *   세부 이슈는 `result.issues[]`로 그대로 노출되므로 정보 손실은 없다.
+ * ### 매칭
+ * - 키: `CapturedEvent.eventName === EventSpec.amplitudeEventName` 완전 일치
+ * - 같은 이벤트가 여러 번 수집되면 해당 스펙의 `captured[]`에 모두 누적
  *
- * @param specs 대상 스펙 목록
- * @param captured 세션 중 수집된 이벤트 전체
- * @param targetEventNames popup에서 선택된 amplitudeEventName 리스트 (R5 판정 기준)
- * @param session 녹화 세션 메타 (`sessionId`로 리포트 식별)
- * @param rules 주입할 규칙 세트
+ * ### R5 예외 이벤트 특별 처리
+ * 결과 포맷이 `ValidationIssue[]`가 아닌 `CapturedEvent[]`라 플러그인 계약을 오염시키지
+ * 않도록 규칙이 아닌 코어에서 `report.unexpected`로 직접 집계한다.
+ *
+ * ### 상태 우선순위(단일 귀속)
+ * 1. captured 0건 → `not_collected`
+ * 2. `suspect_duplicate` 이슈 존재 → `suspect_duplicate`
+ * 3. error/warning severity 이슈 존재 → `fail`
+ * 4. 그 외 → `pass`
+ *
+ * ### stats 불변식
+ * `pass + fail + notCollected + suspectDuplicate === totalSpecs`.
+ * 한 스펙이 `suspect_duplicate`이면서 `missing_param` 이슈를 같이 가져도
+ * `stats.suspectDuplicate`만 증가한다(복합 상태가 여러 카운터에 동시 귀속되지 않음).
+ * M8 리포트의 차트·퍼센트 계산을 단순화하려는 트레이드오프이며, 세부 이슈는
+ * `result.issues[]`로 전부 노출되므로 정보 손실은 없다.
+ *
+ * @param specs            대상 이벤트 스펙 목록
+ * @param captured         세션 중 수집된 이벤트 전체
+ * @param targetEventNames Popup에서 선택된 스펙 이름 목록(R5 판정 기준)
+ * @param session          녹화 세션 메타. `session.id`가 `report.sessionId`로 반영
+ * @param rules            주입 필수. 표준 세트는 `rules/index.ts`의 `defaultRules`를
+ *                         import해 전달(TS 기본 인자 아님)
+ * @returns                M8 리포트가 소비할 `ValidationReport`
  */
 export function validate(
   specs: EventSpec[],
@@ -63,7 +75,7 @@ export function validate(
     };
   });
 
-  // R5 — 타겟으로 선택되지 않았는데 수집된 이벤트
+  // R5 — 코어 전담. 규칙 플러그인과 결과 포맷이 달라(CapturedEvent[]) 여기서 직접 집계.
   const unexpected = captured.filter((e) => !targetSet.has(e.eventName));
 
   return {
@@ -76,7 +88,12 @@ export function validate(
   };
 }
 
-/** 이벤트명별 인덱스. specs 수 × captured 수의 중첩 필터를 O(N+M)로 줄인다. */
+/**
+ * 이벤트명 기준 버킷 인덱스 생성.
+ *
+ * 순진한 구현(`specs.map(…captured.filter…)`)의 O(N×M)을 O(N+M)로 낮춰
+ * 1000 × 100 규모(≤500ms) 성능 기준을 충족한다.
+ */
 function groupByEventName(
   captured: CapturedEvent[],
 ): Map<string, CapturedEvent[]> {
@@ -89,6 +106,12 @@ function groupByEventName(
   return map;
 }
 
+/**
+ * 이슈 목록과 수집 여부를 단일 status로 환원.
+ *
+ * 우선순위 규칙이므로 조건문 순서를 바꾸지 말 것 — 복합 상태(예:
+ * `suspect_duplicate` + `missing_param`)에서 상위 상태가 채택된다.
+ */
 function determineStatus(
   captured: CapturedEvent[],
   issues: ValidationIssue[],
@@ -103,6 +126,12 @@ function determineStatus(
   return "pass";
 }
 
+/**
+ * 최종 status 기준 카운트 집계.
+ *
+ * 단일 귀속 불변식(`pass + fail + notCollected + suspectDuplicate === totalSpecs`)을
+ * 구조적으로 강제하기 위해 status별 switch로만 증가시키고, 이슈 단위 집계는 하지 않는다.
+ */
 function computeStats(
   results: ValidationResult[],
   totalCaptured: number,

@@ -1,14 +1,17 @@
 import type { ValidationIssue } from "../../types/validation.ts";
 import type { ValidationRule } from "../ports/validation-rule.ts";
 
-/** 과수집 의심 임계값: 같은 이벤트가 이 간격보다 짧게 연속 발생하면 R4 발동. */
+/** 과수집 의심 임계값(ms). 같은 이벤트의 인접 간격이 이 값 미만이면 R4 발동. */
 export const SUSPECT_DUPLICATE_THRESHOLD_MS = 500;
 
 /**
- * R4 — 동일 eventName이 500ms 이내 2회 이상 발생.
+ * R4 — 같은 eventName이 짧은 간격으로 연속 발생(과수집 의심).
  *
- * `ctx.captured`는 이미 `spec.amplitudeEventName`으로 필터되어 있으므로 이름 비교 불필요.
- * 시간순 정렬 후 인접 쌍의 간격을 확인하고, 각 인접 쌍에 대해 개별 이슈를 발행한다.
+ * @remarks
+ * - `ctx.captured`는 이미 스펙 이름으로 필터되어 있어 규칙 내 이름 비교 불필요.
+ * - 시간순 정렬 후 인접 쌍을 확인 — N연속 발생 시 N-1개의 이슈가 생성된다.
+ * - severity는 `warning`이지만 `determineStatus`에서 `suspect_duplicate` 상태로 승격되어
+ *   `stats.suspectDuplicate`로 별도 집계된다. M8 리포트에서 일반 `fail`과 분리 표기할 수 있다.
  */
 export const suspectDuplicateRule: ValidationRule = {
   code: "suspect_duplicate",
