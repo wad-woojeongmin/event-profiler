@@ -15,6 +15,7 @@ import { sendMessage } from "@/messaging/extension-messaging.ts";
 import {
   authenticate as sheetsAuthenticate,
   fetchSheetRows,
+  hasCachedToken as sheetsHasCachedToken,
   listSheetTabs,
   parseSpecRows,
   signOut as sheetsSignOut,
@@ -127,6 +128,10 @@ export function createMessagingBackgroundClient(
 
     async signOut() {
       await sheetsSignOut();
+    },
+
+    async hasCachedToken() {
+      return sheetsHasCachedToken();
     },
   };
 }

@@ -10,6 +10,7 @@ import "./styles/reset.css.ts";
 
 import { backgroundClientAtom } from "./atoms/client-atom.ts";
 import { hydrateSessionAtom } from "./atoms/recording-atoms.ts";
+import { hydrateAuthStatusAtom } from "./atoms/specs-atoms.ts";
 import { hydrateActiveTabAtom } from "./atoms/tab-atoms.ts";
 import { RecordingControls } from "./components/recording-controls.tsx";
 import { SettingsSection } from "./components/settings-section.tsx";
@@ -27,6 +28,7 @@ export function PopupApp({ client }: PopupAppProps) {
       <ClientInjector client={client} />
       <SessionBridge />
       <TabBridge />
+      <AuthBridge />
       <SettingsSection />
       <SpecList />
       <UnsupportedTabBanner />
@@ -80,6 +82,19 @@ function SessionBridge() {
  */
 function TabBridge() {
   const hydrate = useSetAtom(hydrateActiveTabAtom);
+  useEffect(() => {
+    void hydrate();
+  }, [hydrate]);
+  return null;
+}
+
+/**
+ * 팝업 마운트 시 캐시된 OAuth 토큰 유무를 silent로 조회해 로그인 버튼 라벨을
+ * 복구한다. Chrome 팝업은 OAuth 창이 뜰 때 닫혀 `idle`로 리셋되므로, 이
+ * 복구 단계가 없으면 사용자는 이미 로그인된 상태에서도 "Google 로그인"만 본다.
+ */
+function AuthBridge() {
+  const hydrate = useSetAtom(hydrateAuthStatusAtom);
   useEffect(() => {
     void hydrate();
   }, [hydrate]);

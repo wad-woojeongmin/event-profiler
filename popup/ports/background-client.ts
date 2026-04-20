@@ -71,4 +71,10 @@ export interface BackgroundClient {
 
   /** 캐시된 Google 토큰을 모두 폐기한다. */
   signOut(): Promise<void>;
+
+  /**
+   * 캐시된 유효 토큰이 있는지 silent로 확인한다. 팝업은 OAuth 창이 뜨는 순간
+   * 포커스를 잃고 닫히므로 재오픈 시 이 값으로 로그인 라벨을 복구한다.
+   */
+  hasCachedToken(): Promise<boolean>;
 }
