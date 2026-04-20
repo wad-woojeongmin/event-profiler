@@ -40,7 +40,7 @@ export interface EventForwarder {
 2. `runAt: 'document_start'`에서 등록.
 3. **반드시 `main(ctx)`의 `ctx.addEventListener(window, 'message', handler)`**로 리스너 설치 — 확장 컨텍스트 무효화(재설치/업데이트/비활성화) 시 WXT가 자동 정리.
    - `event.origin === location.origin` 검증
-   - `event.data?.source === 'catchtable-event-validator'` 검증
+   - `event.data?.source === 'catchtable-event-profiler'` 검증
    - `version === 1` 검증 (호환성)
    - vanilla `window.addEventListener` 직접 사용 금지.
 4. 수신 메시지를 `@webext-core/messaging`의 `sendMessage('captureEvent', { ... })`로 포워딩. `tabId`, `pageUrl`, `pageTitle`는 이 시점에 채워서 보냄.

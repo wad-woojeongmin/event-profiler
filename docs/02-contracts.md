@@ -104,7 +104,7 @@ export interface ValidationReport {
 ```typescript
 // webapp → content script (window.postMessage)
 export interface BridgeMessage {
-  source: "catchtable-event-validator";
+  source: "catchtable-event-profiler";
   version: 1;
   payload: {
     provider: "amplitude";
@@ -137,7 +137,7 @@ export interface RecordingSessionState {
 ### 웹앱 → Content Script
 
 - 채널: `window.postMessage(msg, location.origin)` (vanilla DOM API — 확장과 웹페이지 경계).
-- **반드시 `source === 'catchtable-event-validator'` 체크**로 다른 라이브러리의 postMessage와 구분.
+- **반드시 `source === 'catchtable-event-profiler'` 체크**로 다른 라이브러리의 postMessage와 구분.
 - Content Script는 `event.origin === location.origin`도 검증 (cross-origin 스푸핑 방어).
 - 리스너는 **`ctx.addEventListener(window, 'message', ...)`**로 등록하여 확장 컨텍스트 무효화 시 자동 정리 (M2 참고).
 

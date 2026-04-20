@@ -20,7 +20,7 @@ export function App() {
       <header className="demo-header">
         <div>
           <h1>
-            Event Validator
+            Event Profiler
             <span className="demo-tag">Phase 0 Demo</span>
           </h1>
           <div className="demo-subtitle">

@@ -26,7 +26,7 @@ export function createMessagingTabIdResolver(): TabIdResolver {
     get() {
       if (cached === null) {
         cached = sendMessage("getMyTabId", undefined).catch((error) => {
-          console.debug("[event-validator] getMyTabId failed", error);
+          console.debug("[event-profiler] getMyTabId failed", error);
           // 실패 시 캐시를 비워 다음 호출이 재시도할 수 있게 한다.
           cached = null;
           return UNKNOWN_TAB_ID;

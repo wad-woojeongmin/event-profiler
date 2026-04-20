@@ -41,7 +41,7 @@ function createFakeCtx(): {
 
 function validData(): BridgeMessage {
   return {
-    source: "catchtable-event-validator",
+    source: "catchtable-event-profiler",
     version: 1,
     payload: {
       provider: "amplitude",

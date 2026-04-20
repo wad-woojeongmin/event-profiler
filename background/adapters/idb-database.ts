@@ -4,7 +4,7 @@
 // IndexedDB를 폴리필하지 않으므로 어댑터 테스트에는 `fake-indexeddb`를 별도로
 // 끼워야 한다. `IDBDatabase`·`IDBTransaction`은 포트 밖으로 노출하지 않는다.
 
-export const DB_NAME = "event-validator";
+export const DB_NAME = "event-profiler";
 export const DB_VERSION = 1;
 export const STORE_EVENTS = "events";
 export const STORE_SCREENSHOTS = "screenshots";

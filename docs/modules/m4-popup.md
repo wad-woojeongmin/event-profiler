@@ -115,7 +115,7 @@ import { defineConfig } from "wxt";
 export default defineConfig({
   modules: ["@wxt-dev/module-react"],
   manifest: {
-    name: "Event Validator",
+    name: "Event Profiler",
     version: "0.1.0",
     permissions: ["activeTab", "tabs", "storage", "identity", "scripting"],
     host_permissions: ["https://*.catchtable.co.kr/*"],

@@ -12,7 +12,7 @@ export function PopupPage({ state, actions }: StateHandle) {
     state.recording === "recording" || state.recording === "recording_done";
 
   return (
-    <div className="popup-frame" aria-label="Event Validator 팝업">
+    <div className="popup-frame" aria-label="Event Profiler 팝업">
       <div className="popup-frame-bar">
         <span className="dot red" />
         <span className="dot yellow" />

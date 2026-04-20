@@ -15,7 +15,7 @@ export function createMessagingEventForwarder(): EventForwarder {
         await sendMessage("captureEvent", event);
       } catch (error) {
         // 콘솔 오염 방지를 위해 debug 레벨로만 남긴다.
-        console.debug("[event-validator] captureEvent forward failed", error);
+        console.debug("[event-profiler] captureEvent forward failed", error);
       }
     },
   };

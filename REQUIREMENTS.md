@@ -1,4 +1,4 @@
-# Event Validator — 요구사항 (v3)
+# Event Profiler — 요구사항 (v3)
 
 수집된 Amplitude 이벤트 로그를 구글 시트 스펙과 비교하여 **QA/PM이 확인 가능한 HTML 리포트**를 생성하는 Chrome 확장 (WXT 기반).
 

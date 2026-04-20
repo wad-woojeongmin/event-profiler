@@ -10,7 +10,7 @@ import type { CapturedEvent, RecordingSession } from "./event.ts";
  * - `version`은 호환성 검사용 — 깨는 변경 시 증가
  */
 export interface BridgeMessage {
-  source: "catchtable-event-validator";
+  source: "catchtable-event-profiler";
   version: 1;
   payload: {
     provider: "amplitude";

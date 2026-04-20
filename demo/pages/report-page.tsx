@@ -38,7 +38,7 @@ export function ReportPage({ report, onBack }: Props) {
       </div>
 
       <header className="report-header">
-        <h2>Event Validator 리포트</h2>
+        <h2>Event Profiler 리포트</h2>
         <div className="meta">
           생성 시각 {formatTime(report.generatedAt)} · 녹화 {formatDuration(duration)} ·
           대상 {stats.totalSpecs}개 · 총 수집 {stats.totalCaptured}건

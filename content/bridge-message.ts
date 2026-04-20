@@ -6,7 +6,7 @@
 import type { BridgeMessage } from "@/types/messages.ts";
 
 /** `BridgeMessage.source` 상수. 다른 라이브러리 postMessage와 구별용. */
-export const BRIDGE_SOURCE = "catchtable-event-validator" as const;
+export const BRIDGE_SOURCE = "catchtable-event-profiler" as const;
 /** 호환성 검사용 브리지 프로토콜 버전. 깨는 변경 시 증가. */
 export const BRIDGE_VERSION = 1 as const;
 
