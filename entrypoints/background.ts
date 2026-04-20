@@ -69,6 +69,8 @@ export default defineBackground(() => {
   // content script는 자신의 tabId를 직접 알 수 없어(`browser.tabs.getCurrent()`
   // 미지원) sender.tab.id를 역질의한다. devtools 등 탭이 없는 컨텍스트에서
   // 호출되면 -1 — 호출측이 이를 "unknown"으로 해석한다.
+  // TODO(M4/M8): `UNKNOWN_TAB_ID`가 `types/messages.ts`로 승격되면 아래 `-1`을
+  // 해당 상수로 치환해 content 어댑터와 드리프트되지 않도록 한다.
   onMessage("getMyTabId", ({ sender }) => {
     return sender.tab?.id ?? -1;
   });

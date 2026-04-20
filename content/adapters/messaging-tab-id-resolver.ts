@@ -15,6 +15,9 @@ import { sendMessage } from "@/messaging/extension-messaging.ts";
 import type { TabIdResolver } from "../ports/tab-id-resolver.ts";
 
 /** background 도달 실패 또는 탭이 아닌 컨텍스트를 나타내는 sentinel. */
+// TODO(M4/M8): 외부 소비자가 생기면 `types/messages.ts`로 승격하고 background
+// 핸들러(`entrypoints/background.ts`)의 `?? -1`도 동일 상수로 치환해 드리프트
+// 방지.
 export const UNKNOWN_TAB_ID = -1;
 
 export function createMessagingTabIdResolver(): TabIdResolver {
