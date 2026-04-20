@@ -503,7 +503,7 @@ src/<module>/
 | 익스텐션          | Chrome Manifest V3                                             | 최신 표준                                                                 |
 | 언어              | **TypeScript** (strict, noUncheckedIndexedAccess)              | 타입 안전                                                                 |
 | 프레임워크/번들러 | **WXT** (`wxt`, Vite 기반)                                     | MV3 빌드, entrypoints 자동 수집, HMR, manifest 생성, 크로스 브라우저 옵션 |
-| UI                | **React 18**                                                   | 복잡한 팝업/리포트 상호작용 상태 관리                                     |
+| UI                | **React 19**                                                   | 복잡한 팝업/리포트 상호작용 상태 관리                                     |
 | 상태 관리         | **Zustand**                                                    | 가벼움, slice 기반 SRP 친화적, 스토어 주입 용이                           |
 | 스타일            | **vanilla-extract** (`@vanilla-extract/css` + vite 플러그인)   | 타입 안전한 CSS-in-TS, zero-runtime                                       |
 | 테스트            | Vitest (+ `@testing-library/react` for UI)                     | Vite 일관성                                                               |
@@ -763,7 +763,7 @@ export async function getScreenshot(id: string): Promise<Blob | null>;
 - `src/popup/*` — 로직 (app.tsx, components/, stores/, ports/, adapters/, styles)
 - `wxt.config.ts` — manifest 선언 (key, oauth2, permissions 등)
 
-**스택**: React 18 + Zustand + vanilla-extract + WXT
+**스택**: React 19 + Zustand + vanilla-extract + WXT
 
 #### 책임
 
@@ -1093,7 +1093,7 @@ export function validate(
 - `src/report/*` — 로직
 - (뷰어 모드 선택 시) `entrypoints/report/index.html` + `main.tsx` — WXT 진입점
 
-**스택**: React 18 + vanilla-extract (Zustand 미사용 — 읽기 전용 뷰)
+**스택**: React 19 + vanilla-extract (Zustand 미사용 — 읽기 전용 뷰)
 
 #### 포트 의존
 
