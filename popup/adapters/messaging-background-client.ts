@@ -10,6 +10,7 @@
 //   팝업은 짧게 열렸다 닫히는 UI라 500ms 간격이면 체감 지연이 UI 프레임 수준이다.
 
 import { browser } from "wxt/browser";
+import { storage } from "wxt/utils/storage";
 
 import { sendMessage } from "@/messaging/extension-messaging.ts";
 import {
@@ -24,8 +25,20 @@ import {
 } from "@/sheets/index.ts";
 import type { RecordingSessionState } from "@/types/messages.ts";
 import type { EventSpec } from "@/types/spec.ts";
+import {
+  SPECS_CACHE_FALLBACK,
+  SPECS_CACHE_KEY,
+  type SpecsCachePayload,
+} from "@/types/storage.ts";
 
 import type { BackgroundClient } from "../ports/background-client.ts";
+
+// `local:specsCache`는 M3 SettingsStore가 소유하지만 `wxt/storage`는 컨텍스트
+// 공유이므로 팝업에서도 동일 키·fallback을 재사용해 직접 read/write한다
+// (M8 `wxt-specs-cache-reader`와 같은 패턴). 메시지 왕복 없이 복원 속도를 챙긴다.
+const specsCacheItem = storage.defineItem<SpecsCachePayload>(SPECS_CACHE_KEY, {
+  fallback: SPECS_CACHE_FALLBACK,
+});
 
 /** 세션 상태 폴링 간격. 녹화 중 경과 초 단위 UI를 고려해 500ms 주기. */
 export const SESSION_POLL_INTERVAL_MS = 500;
@@ -137,6 +150,14 @@ export function createMessagingBackgroundClient(
 
     async hasCachedToken() {
       return sheetsHasCachedToken();
+    },
+
+    async getCachedSpecs() {
+      return specsCacheItem.getValue();
+    },
+
+    async setCachedSpecs(specs) {
+      await specsCacheItem.setValue(specs);
     },
   };
 }

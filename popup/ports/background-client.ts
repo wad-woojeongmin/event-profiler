@@ -77,4 +77,16 @@ export interface BackgroundClient {
    * 포커스를 잃고 닫히므로 재오픈 시 이 값으로 로그인 라벨을 복구한다.
    */
   hasCachedToken(): Promise<boolean>;
+
+  /**
+   * 마지막으로 로드한 스펙 스냅샷을 읽는다. 팝업 재오픈 시 "스펙 불러오기"를
+   * 다시 누르지 않고도 체크박스를 즉시 복원하기 위함. 캐시가 비어있으면 `null`.
+   */
+  getCachedSpecs(): Promise<EventSpec[] | null>;
+
+  /**
+   * 스펙 스냅샷을 캐시에 덮어쓴다. `loadSpecs` 성공 직후 호출해 다음 팝업
+   * 오픈에서 복원 가능하게 한다.
+   */
+  setCachedSpecs(specs: EventSpec[]): Promise<void>;
 }
