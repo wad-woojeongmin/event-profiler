@@ -198,6 +198,64 @@ describe("Validator 시나리오 — validate() 공개 API", () => {
       );
       expect(dups).toHaveLength(2);
     });
+
+    it("같은 이벤트라도 파라미터 값이 다르면(서로 다른 대상) 오탐하지 않는다", () => {
+      const base = 1_700_000_000_000;
+      const events = [
+        makeEvent({
+          id: "a",
+          eventName: "x",
+          timestamp: base,
+          params: { shopRef: "shop-1" },
+        }),
+        makeEvent({
+          id: "b",
+          eventName: "x",
+          timestamp: base + 1,
+          params: { shopRef: "shop-2" },
+        }),
+      ];
+      const report = runValidate({
+        specs: [makeSpec({ amplitudeEventName: "x" })],
+        events,
+      });
+      const dups = report.results[0]?.issues.filter(
+        (i) => i.type === "suspect_duplicate",
+      );
+      expect(dups).toEqual([]);
+    });
+
+    it("파라미터 값이 같은 이벤트끼리만 그룹 안에서 시간 차를 잰다", () => {
+      const base = 1_700_000_000_000;
+      const events = [
+        makeEvent({
+          id: "a1",
+          eventName: "x",
+          timestamp: base,
+          params: { shopRef: "shop-1" },
+        }),
+        makeEvent({
+          id: "b1",
+          eventName: "x",
+          timestamp: base + 1,
+          params: { shopRef: "shop-2" },
+        }),
+        makeEvent({
+          id: "a2",
+          eventName: "x",
+          timestamp: base + 50,
+          params: { shopRef: "shop-1" },
+        }),
+      ];
+      const report = runValidate({
+        specs: [makeSpec({ amplitudeEventName: "x" })],
+        events,
+      });
+      const dups = report.results[0]?.issues.filter(
+        (i) => i.type === "suspect_duplicate",
+      );
+      expect(dups).toHaveLength(1);
+    });
   });
 
   describe("R4와 R2가 함께 발생하는 경우 — 상태는 상위 우선순위에 맞춘다", () => {
