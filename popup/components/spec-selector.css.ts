@@ -71,7 +71,7 @@ export const columnAction = style({
   cursor: "pointer",
   selectors: {
     "&:hover:not(:disabled)": {
-      background: vars.color.bg,
+      background: vars.color.hover,
       color: vars.color.text,
     },
     "&:disabled": { opacity: 0.4, cursor: "not-allowed" },
@@ -100,7 +100,7 @@ export const searchInput = style({
   border: `1px solid ${vars.color.border}`,
   borderRadius: vars.radius.md,
   fontSize: "10.5px",
-  background: vars.color.bg,
+  background: vars.color.surface,
   color: vars.color.text,
   height: "24px",
   selectors: {
@@ -108,7 +108,7 @@ export const searchInput = style({
       outline: "none",
       borderColor: vars.color.primary,
     },
-    "&:disabled": { background: vars.color.surface, cursor: "not-allowed" },
+    "&:disabled": { background: vars.color.surfaceAlt, cursor: "not-allowed" },
   },
 });
 

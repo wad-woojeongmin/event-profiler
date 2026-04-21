@@ -54,7 +54,7 @@ export const buttonVariants = styleVariants({
   secondary: [
     baseButton,
     {
-      background: vars.color.bg,
+      background: vars.color.surface,
       borderColor: vars.color.border,
       color: vars.color.text,
       selectors: {

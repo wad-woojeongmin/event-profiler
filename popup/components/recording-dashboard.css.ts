@@ -37,7 +37,7 @@ export const recHeader = style({
   alignItems: "center",
   gap: vars.space.sm,
   padding: "10px 12px",
-  background: vars.color.bg,
+  background: vars.color.surface,
   borderBottom: `1px solid ${vars.color.border}`,
   flexShrink: 0,
 });
@@ -99,7 +99,7 @@ export const recStartClock = style({
 export const counterStrip = style({
   display: "grid",
   gridTemplateColumns: "repeat(5, 1fr)",
-  background: vars.color.bg,
+  background: vars.color.surface,
   borderBottom: `1px solid ${vars.color.border}`,
   flexShrink: 0,
 });

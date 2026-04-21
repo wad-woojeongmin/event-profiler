@@ -11,13 +11,16 @@ import { createGlobalTheme } from "@vanilla-extract/css";
 
 export const vars = createGlobalTheme(":root", {
   color: {
-    bg: "#ffffff",
-    surface: "#f6f7f9",
-    surfaceAlt: "#eff1f4",
-    hover: "#ecedf0",
-    border: "#e4e7eb",
-    borderStrong: "#d2d6dc",
-    divider: "#eceef1",
+    // 디자인의 neutral 팔레트는 cool-hue oklch 99%→91% 사이를 얕게 미끄러진다.
+    // 헤더(surfaceAlt)는 리스트 바탕(bg)과의 차이가 거의 안 보일 정도로 옅어야
+    // 구분선(border/divider)으로 구조가 드러나는 원래 의도가 산다.
+    bg: "oklch(99% 0.003 240)",
+    surface: "oklch(100% 0 0)",
+    surfaceAlt: "oklch(97.5% 0.004 240)",
+    hover: "oklch(96% 0.005 240)",
+    border: "oklch(91% 0.006 240)",
+    borderStrong: "oklch(85% 0.008 240)",
+    divider: "oklch(94% 0.005 240)",
     text: "#1f2933",
     textMuted: "#6b7280",
     textSubtle: "#9ba3af",
