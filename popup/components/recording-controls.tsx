@@ -14,6 +14,7 @@ import {
   stopRecordingAtom,
   selectedEventNamesAtom,
 } from "../atoms/recording-atoms.ts";
+import { specsAtom } from "../atoms/specs-atoms.ts";
 import { isSupportedTabAtom } from "../atoms/tab-atoms.ts";
 
 import * as styles from "./recording-controls.css.ts";
@@ -23,9 +24,15 @@ export function RecordingControls() {
   const session = useAtomValue(recordingSessionAtom);
   const selected = useAtomValue(selectedEventNamesAtom);
   const isSupported = useAtomValue(isSupportedTabAtom);
+  const specs = useAtomValue(specsAtom);
   const start = useSetAtom(startRecordingAtom);
   const stop = useSetAtom(stopRecordingAtom);
   const generate = useSetAtom(generateReportAtom);
+
+  // SpecsBridge가 팝업 마운트 시 `local:specsCache`로부터 specsAtom을 복원하므로,
+  // 재오픈 후에도 캐시에 남은 스펙이 있으면 이 값이 채워진다. M8 어셈블러가 읽는
+  // 소스(캐시)와 UI 소스가 동일한 셈이라 플래그 하나로 가드가 성립한다.
+  const canGenerate = specs.length > 0;
 
   if (phase === "recording" && session.session) {
     return (
@@ -69,9 +76,13 @@ export function RecordingControls() {
           type="button"
           className={styles.buttonVariants.start}
           onClick={() => void generate()}
+          disabled={!canGenerate}
         >
           리포트 생성 (새 탭)
         </button>
+        {!canGenerate && (
+          <p className={styles.guardMessage}>스펙을 먼저 불러와 주세요.</p>
+        )}
         <div className={styles.buttonRow}>
           <button
             type="button"

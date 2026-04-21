@@ -108,6 +108,8 @@ function AuthBridge() {
 /**
  * 팝업 마운트 시 `local:specsCache`에서 마지막 스펙 스냅샷을 복구한다. 시트 재요청
  * 없이 체크박스가 즉시 복원되므로 녹화 중 팝업을 껐다 켜도 대상 리스트가 유지된다.
+ * 이 복원으로 `specsAtom`이 채워지는 덕분에 "리포트 생성" 가드도 `specsAtom.length > 0`
+ * 하나로 결정 가능해진다(M8 어셈블러가 동일 캐시를 read-only로 읽는다).
  */
 function SpecsBridge() {
   const hydrate = useSetAtom(hydrateSpecsFromCacheAtom);
