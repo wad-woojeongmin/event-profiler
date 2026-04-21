@@ -3,6 +3,7 @@
 // 포트에만 의존하므로 `browser.*`·`wxt/storage`·IndexedDB 없이 in-memory fake로
 // 테스트한다. 런타임 의존을 추가하려면 어댑터/엔트리포인트로 옮겨야 한다.
 
+import { canonicalEventName } from "@/shared/canonical-event-name.ts";
 import type { CapturedEvent, RecordingSession } from "@/types/event.ts";
 import type { RecordingSessionState } from "@/types/messages.ts";
 
@@ -112,11 +113,17 @@ export function createRecordingSession(
         const current = await deps.sessionStore.getRecording();
         if (!current || current.endedAt !== undefined) return;
 
-        const timestamp = nowFn();
-        const screenshotId = await deps.scheduler.scheduleFor(
-          event.tabId,
-          timestamp,
+        // 이벤트 자체는 항상 기록한다 — 선택 외 이벤트는 R5 unexpected로 흘러 오타
+        // 감지에 쓰인다. 스크린샷만 선택된 target에 한정해 IDB 용량을 아낀다.
+        // 키 비교는 matching과 동일하게 canonical 이름으로(스펙 시트 컨벤션).
+        const probe: CapturedEvent = { ...event, id: "", screenshotId: undefined };
+        const isTarget = current.targetEventNames.includes(
+          canonicalEventName(probe),
         );
+        const timestamp = nowFn();
+        const screenshotId = isTarget
+          ? await deps.scheduler.scheduleFor(event.tabId, timestamp)
+          : undefined;
         const full: CapturedEvent = {
           ...event,
           id: uuidFn(),

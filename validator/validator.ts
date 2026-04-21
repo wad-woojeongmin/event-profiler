@@ -1,3 +1,4 @@
+import { canonicalEventName } from "../shared/canonical-event-name.ts";
 import type { CapturedEvent, RecordingSession } from "../types/event.ts";
 import type { EventSpec } from "../types/spec.ts";
 import type {
@@ -114,37 +115,6 @@ function groupByCanonicalName(
     else map.set(key, [event]);
   }
   return map;
-}
-
-/**
- * 캡처된 이벤트의 canonical amplitude 이름을 재구성한다.
- *
- * 캐치테이블 로그 스펙 컨벤션(docs/05-sheet-spec.md): `amplitudeEventName`은
- * `[pageName, sectionName, actionName, eventType]`을 빈 값 제외 후 `_`로 join.
- * 웹앱이 params에 이 네 필드를 실어 보내므로, 여기서 되집어 스펙의 key로 정렬한다.
- *
- * 연속 중복(예: 웹앱이 sectionName과 actionName을 같은 값으로 중복 채우는 케이스)은
- * 인접 dedup으로 흡수한다. 스펙 시트는 둘이 같을 때 한쪽만 쓰는 관행이다.
- * 재구성 결과가 공백이거나 한 토큰뿐이면 원본 `eventName`으로 폴백 — 테스트 픽스처나
- * 이미 canonical 이름을 쏘는 웹앱까지 회귀 없이 지원.
- */
-export function canonicalEventName(e: CapturedEvent): string {
-  const p = e.params;
-  const raw = [
-    asNonEmpty(p["pageName"]),
-    asNonEmpty(p["sectionName"]),
-    asNonEmpty(p["actionName"]),
-    asNonEmpty(p["eventType"]),
-  ].filter((x): x is string => x !== null);
-  const parts: string[] = [];
-  for (const tok of raw) {
-    if (parts[parts.length - 1] !== tok) parts.push(tok);
-  }
-  return parts.length >= 2 ? parts.join("_") : e.eventName;
-}
-
-function asNonEmpty(v: unknown): string | null {
-  return typeof v === "string" && v.length > 0 ? v : null;
 }
 
 /**
