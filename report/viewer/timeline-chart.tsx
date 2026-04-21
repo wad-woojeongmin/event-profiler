@@ -4,10 +4,15 @@
 // 디자인 원본은 pxPerSec=8 고정(292초 → 2336px)이지만 실제 녹화 길이에 따라
 // 눈금 간격만 `pickTickInterval`로 조절한다. px/sec은 가독성 레퍼런스 그대로 둔다.
 
+import type { MouseEvent } from "react";
+import { useCallback, useState } from "react";
+import { createPortal } from "react-dom";
+
+import { canonicalEventName } from "@/shared/canonical-event-name.ts";
 import type { CapturedEvent, RecordingSession } from "@/types/event.ts";
 import type { ValidationResult } from "@/types/validation.ts";
 
-import { formatTimelineTick, offsetSec } from "./format.ts";
+import { formatClock, formatTimelineTick, offsetSec } from "./format.ts";
 import * as styles from "./timeline-chart.css.ts";
 
 interface Props {
@@ -23,12 +28,50 @@ const PX_PER_SEC = 8;
 
 type MarkerKind = "pass" | "warn" | "fail";
 
+interface Preview {
+  data: string;
+  /** gtag 포맷(스펙 시트와 동일한 canonical 이름). */
+  gtagName: string;
+  /** 웹앱이 Amplitude에 쏜 원본 이벤트명(humanEventName 포맷). */
+  rawName: string;
+  timeLabel: string;
+  /** 타겟의 viewport 기준 중앙 x. */
+  anchorX: number;
+  /** 타겟의 viewport 기준 top. */
+  anchorTop: number;
+  /** 타겟의 viewport 기준 bottom. */
+  anchorBottom: number;
+}
+
 export function TimelineChart({
   session,
   captured,
   screenshotDataUrls,
   statusByEventName,
 }: Props) {
+  const [preview, setPreview] = useState<Preview | null>(null);
+
+  const showPreview = useCallback(
+    (e: MouseEvent<HTMLElement>, ev: CapturedEvent) => {
+      const data = ev.screenshotId
+        ? screenshotDataUrls?.[ev.screenshotId]
+        : undefined;
+      if (!data) return;
+      const rect = e.currentTarget.getBoundingClientRect();
+      setPreview({
+        data,
+        gtagName: canonicalEventName(ev),
+        rawName: ev.eventName,
+        timeLabel: formatClock(ev.timestamp),
+        anchorX: rect.left + rect.width / 2,
+        anchorTop: rect.top,
+        anchorBottom: rect.bottom,
+      });
+    },
+    [screenshotDataUrls],
+  );
+  const hidePreview = useCallback(() => setPreview(null), []);
+
   if (captured.length === 0) {
     return (
       <div className={styles.empty}>녹화 중 수집된 이벤트가 없습니다.</div>
@@ -113,7 +156,9 @@ export function TimelineChart({
                     key={ev.id}
                     className={styles.thumb}
                     style={{ left: `${sec * PX_PER_SEC}px` }}
-                    title={`${ev.eventName} @ ${formatTimelineTick(sec)}`}
+                    title={`${canonicalEventName(ev)} (${ev.eventName}) @ ${formatTimelineTick(sec)}`}
+                    onMouseEnter={(e) => showPreview(e, ev)}
+                    onMouseLeave={hidePreview}
                   >
                     {data ? (
                       <div className={styles.thumbImageReal}>
@@ -184,7 +229,9 @@ export function TimelineChart({
                       top: `${laneIdx * 32 + 6}px`,
                       left: `${sec * PX_PER_SEC - 1.5}px`,
                     }}
-                    title={`${ev.eventName} · ${formatTimelineTick(sec)}`}
+                    title={`${canonicalEventName(ev)} (${ev.eventName}) · ${formatTimelineTick(sec)}`}
+                    onMouseEnter={(e) => showPreview(e, ev)}
+                    onMouseLeave={hidePreview}
                   />
                 );
               })}
@@ -192,8 +239,47 @@ export function TimelineChart({
           </div>
         </div>
       </div>
+      {preview && <ScreenshotPreview preview={preview} />}
     </div>
   );
+}
+
+/**
+ * 호버된 타겟의 viewport 위치를 기준으로 스크린샷 프리뷰를 body에 portal 렌더.
+ * 기본은 타겟 위쪽으로 띄우고, 상단에 공간이 부족하면 아래로 뒤집는다.
+ */
+function ScreenshotPreview({ preview }: { preview: Preview }) {
+  const PREVIEW_WIDTH = 480;
+  const GAP = 10;
+  const flipBelow = preview.anchorTop < 320;
+  const left = clamp(
+    preview.anchorX - PREVIEW_WIDTH / 2,
+    8,
+    window.innerWidth - PREVIEW_WIDTH - 8,
+  );
+  const styleObj: React.CSSProperties = flipBelow
+    ? { left, top: preview.anchorBottom + GAP }
+    : {
+        left,
+        top: preview.anchorTop - GAP,
+        transform: "translateY(-100%)",
+      };
+  return createPortal(
+    <div className={styles.previewRoot} style={styleObj}>
+      <img src={preview.data} alt="" className={styles.previewImg} />
+      <div className={styles.previewCaption}>
+        <div className={styles.previewNameGtag}>{preview.gtagName}</div>
+        <div className={styles.previewNameRaw}>
+          {preview.rawName} · {preview.timeLabel}
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+function clamp(n: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, n));
 }
 
 function uniqueLanes(captured: CapturedEvent[]): string[] {
