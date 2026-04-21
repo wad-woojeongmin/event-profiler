@@ -3,9 +3,9 @@
 // - idle: "녹화 시작" 전용 풀폭 버튼. 선택 0건/비지원 탭에서 disabled.
 // - recording: "녹화 종료" 체크박스 + "리포트 보기"(비활성, 가드 안내). 체크 순간
 //   `stopRecording`을 호출한다.
-// - recording_done: "이벤트 다시 선택"(secondary) + "다시 녹화"(secondary) +
-//   "리포트 보기"(primary). "이벤트 다시 선택"은 세션을 초기화해 idle phase로
-//   되돌린다 → 선택 UI가 다시 보여 사용자가 다른 이벤트 세트를 고를 수 있다.
+// - recording_done: "이벤트 다시 선택"(secondary) + "리포트 보기"(primary).
+//   "이벤트 다시 선택"은 세션을 초기화해 idle phase로 되돌리며, 이전 선택은
+//   `selectedEventNamesAtom`에 남아있어 그대로 다시 녹화를 시작할 수 있다.
 //
 // 경과 시간·수집 건수·세부 상태는 `RecordingDashboard`가 표시하므로 여기서는
 // 버튼 그룹만 담당한다.
@@ -74,14 +74,6 @@ export function RecordingControls() {
             onClick={() => void reset()}
           >
             이벤트 다시 선택
-          </button>
-          <button
-            type="button"
-            className={styles.buttonVariants.secondary}
-            onClick={() => void start()}
-            disabled={startDisabled}
-          >
-            다시 녹화
           </button>
           <button
             type="button"
