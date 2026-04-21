@@ -93,7 +93,10 @@ export function EventDetail({ result }: Props) {
           <div className={styles.colBody}>
             <SpecLine k="event" v={spec.amplitudeEventName} />
             {Array.from(actualParamKeys)
-              .filter((p) => !HIDDEN_BASE_KEYS.has(p))
+              // 스펙이 명시한 키는 base와 이름이 겹쳐도 의미 있는 값이라 감추지 않는다.
+              // (예: 스펙이 UTM `source`를 required로 선언한 경우 — 왼쪽 열의 `missing`
+              //  판정과 오른쪽 열 노출 여부가 일관돼야 함.)
+              .filter((p) => spec.params.includes(p) || !HIDDEN_BASE_KEYS.has(p))
               .map((p) => {
                 const sample = firstSampleValue(captured, p);
                 return (

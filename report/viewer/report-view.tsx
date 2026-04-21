@@ -1,5 +1,5 @@
 // 로드된 리포트의 전체 레이아웃. 순수 props 소비만 하므로 테스트에서 임의의
-// `ReportData`를 주입해 시각 회귀를 확인할 수 있다.
+// `ReportData`를 주입해 시각 변경이 생겼는지 확인할 수 있다.
 //
 // 디자인 원본(design-bundle/components/report-variations.jsx `ReportPage`)의
 // 섹션 순서를 그대로 따른다:
@@ -16,6 +16,7 @@ import { Header } from "./header.tsx";
 import { ResultsTable } from "./results-table.tsx";
 import { formatReportAsText } from "./report-text.ts";
 import { StatsDashboard } from "./stats-dashboard.tsx";
+import { buildStatusByEventName } from "./status-map.ts";
 import { TimelineChart } from "./timeline-chart.tsx";
 import * as styles from "./report-view.css.ts";
 
@@ -32,15 +33,11 @@ export function ReportView({ data }: Props) {
     [report.results],
   );
 
-  // 타임라인 마커/썸네일 점 색을 이름 단위로 결정. 이름이 같으면 스펙도 같고 상태도
-  // 같다는 전제(one spec per amplitudeEventName)에 기댄다.
-  const statusByEventName = useMemo(() => {
-    const map = new Map<string, ValidationResult["status"]>();
-    for (const r of report.results) {
-      map.set(r.spec.amplitudeEventName, r.status);
-    }
-    return map;
-  }, [report.results]);
+  // 타임라인 마커/썸네일 점 색 lookup. 구현 배경과 주의점은 `status-map.ts` 참조.
+  const statusByEventName = useMemo(
+    () => buildStatusByEventName(report.results),
+    [report.results],
+  );
 
   // 초기 선택 규칙: 이슈가 가장 많은 결과 → 없으면 captured가 있는 첫 행 → 없으면 0.
   // 디자인 원본은 `idx=4`를 하드코딩했지만 실데이터는 길이가 다르므로 의미 기반 선택.
@@ -104,6 +101,16 @@ export function ReportView({ data }: Props) {
   );
 }
 
+// 초기 선택 우선순위: 상태(fail > 중복 의심 > 미수집 > pass) → 이슈 수 → captured 존재.
+// 이슈 수만 보면 not_collected/suspect_duplicate는 이슈 0건인 경로가 있어 하위로
+// 밀리는 문제가 있었다. status 랭크를 먼저 곱해 발견 우선순위를 지키게 한다.
+const STATUS_RANK: Record<ValidationResult["status"], number> = {
+  fail: 3,
+  suspect_duplicate: 2,
+  not_collected: 1,
+  pass: 0,
+};
+
 function pickInitialIdx(
   results: ReportData["report"]["results"],
 ): number {
@@ -112,7 +119,10 @@ function pickInitialIdx(
   for (let i = 0; i < results.length; i++) {
     const r = results[i];
     if (!r) continue;
-    const score = r.issues.length * 10 + (r.captured.length > 0 ? 1 : 0);
+    const score =
+      STATUS_RANK[r.status] * 1000 +
+      r.issues.length * 10 +
+      (r.captured.length > 0 ? 1 : 0);
     if (score > bestScore) {
       bestScore = score;
       bestIdx = i;
