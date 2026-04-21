@@ -391,6 +391,40 @@ describe("Validator 시나리오 — validate() 공개 API", () => {
       expect(unreferenced).toEqual([]);
     });
 
+    it("웹앱이 기본으로 싣는 베이스 프로퍼티(앱 환경·유입경로·UTM·object·eventTimeStamp)도 R6로 잡히지 않는다", () => {
+      // 이 키들은 시트의 object/extension 셀로 개별 선언되지 않아 EventSpec.params에 담기지 않지만
+      // 웹앱이 모든 이벤트에 기본으로 실어 보내므로 R6 거짓 양성이 된다.
+      const spec = makeSpec({ amplitudeEventName: "x", params: [] });
+      const event = makeEvent({
+        eventName: "x",
+        params: {
+          isNativeApp: true,
+          deviceType: "WEB",
+          buildVersion: "1.0.0",
+          nativeAppVersion: "1.0.0",
+          deviceId: "d-1",
+          entryHost: "example.com",
+          isExternalEntry: false,
+          referrerUrl: "https://r.example/",
+          referrerDomain: "r.example",
+          source: "s",
+          medium: "m",
+          campaign: "c",
+          content: "ct",
+          term: "t",
+          object: "o",
+          eventTimeStamp: 1_700_000_000_000,
+        },
+      });
+      const report = runValidate({ specs: [spec], events: [event] });
+      const r = report.results[0];
+      expect(r?.status).toBe("pass");
+      const unreferenced = r?.issues.filter(
+        (i) => i.type === "param_unreferenced",
+      );
+      expect(unreferenced).toEqual([]);
+    });
+
     it("암묵 선언 목록 밖의 키는 여전히 R6로 잡힌다", () => {
       const spec = makeSpec({
         amplitudeEventName: "shopDetail_view",

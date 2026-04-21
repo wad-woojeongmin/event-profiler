@@ -1,3 +1,4 @@
+import { BASE_EVENT_PARAM_KEYS } from "../../shared/base-event-param-keys.ts";
 import { TAXONOMY_PARAM_KEYS } from "../../shared/taxonomy-param-keys.ts";
 import type { ValidationIssue } from "../../types/validation.ts";
 import type { ValidationRule } from "../ports/validation-rule.ts";
@@ -11,13 +12,19 @@ import type { ValidationRule } from "../ports/validation-rule.ts";
  *   상태 결정(`determineStatus`)의 `fail` 조건(error/warning)에 영향을 주지 않는다.
  * - `TAXONOMY_PARAM_KEYS`(pageName/sectionName/actionName/eventType/logType, 동의어 objectContainer/objectType)는
  *   시트 컬럼 레벨로 선언되어 `EventSpec.params`에 담기지 않지만 모든 이벤트에 기본으로 실린다.
- *   spec.params와 union해 거짓 양성을 제거한다.
+ * - `BASE_EVENT_PARAM_KEYS`(앱 환경·유입경로·UTM·object·eventTimeStamp)는 웹앱이 모든 이벤트에
+ *   기본으로 실어 보내는 베이스 프로퍼티라 시트 스펙에 개별 선언되지 않는다.
+ * - 위 두 집합을 spec.params와 union해 거짓 양성을 제거한다.
  */
 export const paramUnreferencedRule: ValidationRule = {
   code: "param_unreferenced",
   evaluate(ctx) {
     if (ctx.captured.length === 0) return [];
-    const specKeys = new Set([...ctx.spec.params, ...TAXONOMY_PARAM_KEYS]);
+    const specKeys = new Set([
+      ...ctx.spec.params,
+      ...TAXONOMY_PARAM_KEYS,
+      ...BASE_EVENT_PARAM_KEYS,
+    ]);
 
     const issues: ValidationIssue[] = [];
     const reported = new Set<string>();
