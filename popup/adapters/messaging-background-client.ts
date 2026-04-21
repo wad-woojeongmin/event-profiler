@@ -35,7 +35,12 @@ import type { BackgroundClient } from "../ports/background-client.ts";
 
 // `local:specsCache`는 M3 SettingsStore가 소유하지만 `wxt/storage`는 컨텍스트
 // 공유이므로 팝업에서도 동일 키·fallback을 재사용해 직접 read/write한다
-// (M8 `wxt-specs-cache-reader`와 같은 패턴). 메시지 왕복 없이 복원 속도를 챙긴다.
+// (M8 `wxt-specs-cache-reader`와 같은 패턴). 두 가지 목적을 동시에 충족한다:
+//   1) 팝업 재오픈 시 캐시에서 specs를 복원해 "스펙 불러오기" 반복을 생략 (M4).
+//   2) M8 리포트 어셈블러(SW)가 같은 키를 read-only로 읽으므로 "리포트 생성"
+//      경로가 no-op 없이 non-null을 반환.
+// 소유자 규약은 docs/02-contracts.md §공용 스토리지 키 / m5-sheets.md:64
+// ("local:specsCache 기록은 소비자(M3/팝업) 책임")에 근거.
 const specsCacheItem = storage.defineItem<SpecsCachePayload>(SPECS_CACHE_KEY, {
   fallback: SPECS_CACHE_FALLBACK,
 });
@@ -82,9 +87,7 @@ export function createMessagingBackgroundClient(
 
   return {
     async loadSpecs(sheetTitle) {
-      if (sheetTitle !== undefined) {
-        return loadSpecsFromTab(sheetTitle);
-      }
+      if (sheetTitle !== undefined) return loadSpecsFromTab(sheetTitle);
       return loadSpecsFromAllDefinitionTabs();
     },
 

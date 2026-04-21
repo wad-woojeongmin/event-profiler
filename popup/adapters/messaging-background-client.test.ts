@@ -10,6 +10,7 @@ import { fakeBrowser } from "wxt/testing";
 
 import type { RecordingSessionState } from "@/types/messages.ts";
 import type { EventSpec } from "@/types/spec.ts";
+import { SPECS_CACHE_KEY } from "@/types/storage.ts";
 
 const sendMessageMock = vi.fn();
 const fetchSheetRowsMock = vi.fn(async (_title: string) => [] as string[][]);
@@ -122,6 +123,20 @@ describe("createMessagingBackgroundClient", () => {
       "e_07. 타임라인_신규 로그설계 (최종완)",
       "e_22.전환이 필요한 로그_신규로그설계",
     ]);
+  });
+
+  it("setCachedSpecs는 specs를 local:specsCache에 기록해 리포트 어셈블러가 읽을 수 있게 한다", async () => {
+    // 이 기록이 빠지면 M8 `reportAssembler.run()`이 specs=null을 읽어 null을 반환하고,
+    // "리포트 생성 (새 탭)" 버튼이 조용히 no-op이 된다(PR #11 회귀 재발 방지).
+    // 기록 책임은 `loadSpecsAtom`이 지지만 실제 스토리지 접근 경로는 이 어댑터이므로
+    // 어댑터 레이어에서 "SPECS_CACHE_KEY에 올바르게 쓴다"는 계약을 여기서 검증한다.
+    const expected = [makeSpec("e1", "03. 메인_신규로그설계")];
+    const client = createMessagingBackgroundClient();
+    await client.setCachedSpecs(expected);
+
+    const { storage } = await import("wxt/utils/storage");
+    const cached = await storage.getItem<EventSpec[] | null>(SPECS_CACHE_KEY);
+    expect(cached).toEqual(expected);
   });
 
   it("loadSpecs(title)로 명시되면 해당 탭만 단일 로드한다", async () => {
