@@ -124,6 +124,55 @@ describe("createReportAssembler", () => {
     expect(writer.last).toBe(data);
   });
 
+  it("targetEventNames에 포함된 스펙만 results에 들어간다", async () => {
+    // 캐시는 전체 스펙을 보존하지만, 리포트의 검증 결과는 녹화 시작 시 사용자가
+    // 선택한 이벤트로 국한한다 — 전체 시트(수천 개) 로드 후에도 관심 이벤트만 비교.
+    const session = makeSession({ targetEventNames: ["evt_selected"] });
+    const writer = makeWriter();
+    const assembler = createReportAssembler({
+      specsCacheReader: makeSpecsReader([
+        makeSpec({ amplitudeEventName: "evt_selected" }),
+        makeSpec({ amplitudeEventName: "evt_other1" }),
+        makeSpec({ amplitudeEventName: "evt_other2" }),
+      ]),
+      screenshotReader: makeScreenshotReader({}),
+      reportWriter: writer,
+      sessionSource: makeSessionSource(
+        {
+          session,
+          capturedCount: 0,
+          targetEventNames: session.targetEventNames,
+        },
+        [],
+      ),
+    });
+
+    const data = await assembler.run();
+    expect(data?.report.results).toHaveLength(1);
+    expect(data?.report.results[0]?.spec.amplitudeEventName).toBe(
+      "evt_selected",
+    );
+  });
+
+  it("선택된 스펙이 캐시에 하나도 없으면 null 반환", async () => {
+    const session = makeSession({ targetEventNames: ["missing_in_cache"] });
+    const writer = makeWriter();
+    const assembler = createReportAssembler({
+      specsCacheReader: makeSpecsReader([
+        makeSpec({ amplitudeEventName: "evt_other" }),
+      ]),
+      screenshotReader: makeScreenshotReader({}),
+      reportWriter: writer,
+      sessionSource: makeSessionSource({
+        session,
+        capturedCount: 0,
+        targetEventNames: session.targetEventNames,
+      }),
+    });
+    expect(await assembler.run()).toBeNull();
+    expect(writer.last).toBeNull();
+  });
+
   it("스크린샷 load 실패는 해당 id만 드롭하고 어셈블은 완료된다", async () => {
     const session = makeSession({ targetEventNames: ["evt"] });
     const good = new Blob([new Uint8Array([9])], { type: "image/jpeg" });

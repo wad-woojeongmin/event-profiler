@@ -259,7 +259,10 @@ describe("recording-session", () => {
       uuid: ctx.uuids.next,
     });
 
-    await controller.startRecording({ targetEventNames: ["a"], tabId: 1 });
+    await controller.startRecording({
+      targetEventNames: ["shopDetail_view"],
+      tabId: 1,
+    });
 
     ctx.clock.now = 10_000;
     await controller.captureEvent(makeEventPayload());
@@ -293,7 +296,10 @@ describe("recording-session", () => {
       uuid: ctx.uuids.next,
     });
 
-    await controller.startRecording({ targetEventNames: ["a"], tabId: 1 });
+    await controller.startRecording({
+      targetEventNames: ["shopDetail_view"],
+      tabId: 1,
+    });
 
     ctx.clock.now = 20_000;
     await controller.captureEvent(makeEventPayload()); // 1st: capture null → undefined
@@ -359,6 +365,70 @@ describe("recording-session", () => {
     expect(state.session).not.toBeNull();
     expect(state.capturedCount).toBe(1);
     expect(state.targetEventNames).toEqual(["x", "y"]);
+  });
+
+  it("선택 외 이벤트는 저장하되 스크린샷은 찍지 않는다", async () => {
+    // 오타 감지(R5 unexpected)를 위해 이벤트 자체는 남기고, IDB 용량 때문에
+    // 스크린샷만 선택된 target(canonical 이름)에 한해 캡처한다.
+    const controller = createRecordingSession({
+      sessionStore: ctx.sessionStore,
+      eventWriter: ctx.eventStore,
+      eventReader: ctx.eventStore,
+      screenshotWriter: ctx.screenshotStore,
+      scheduler: ctx.scheduler,
+      now: () => ctx.clock.now,
+      uuid: ctx.uuids.next,
+    });
+
+    await controller.startRecording({
+      targetEventNames: ["shopDetail_view"],
+      tabId: 1,
+    });
+
+    // 1) 선택된 이벤트 — 스크린샷 ON
+    ctx.clock.now = 30_000;
+    await controller.captureEvent(makeEventPayload());
+    // 2) 선택 외 이벤트(오타 시나리오) — 이벤트는 저장, 스크린샷은 skip
+    ctx.clock.now = 31_000;
+    await controller.captureEvent(
+      makeEventPayload({ eventName: "shopDetail_vieww" }),
+    );
+
+    expect(ctx.events).toHaveLength(2);
+    expect(ctx.captures).toHaveLength(1);
+    expect(ctx.events[0]?.screenshotId).toBeDefined();
+    expect(ctx.events[1]?.screenshotId).toBeUndefined();
+  });
+
+  it("canonical 이름 재구성으로 선택 여부를 판정한다", async () => {
+    // 웹앱이 humanEventName("view__shopDetail") 포맷으로 쏴도 params로부터
+    // canonical(shopDetail_view)이 재구성되면 target과 매칭되어 스크린샷을 찍는다.
+    const controller = createRecordingSession({
+      sessionStore: ctx.sessionStore,
+      eventWriter: ctx.eventStore,
+      eventReader: ctx.eventStore,
+      screenshotWriter: ctx.screenshotStore,
+      scheduler: ctx.scheduler,
+      now: () => ctx.clock.now,
+      uuid: ctx.uuids.next,
+    });
+
+    await controller.startRecording({
+      targetEventNames: ["shopDetail_view"],
+      tabId: 1,
+    });
+
+    ctx.clock.now = 40_000;
+    await controller.captureEvent(
+      makeEventPayload({
+        eventName: "view__shopDetail",
+        params: { pageName: "shopDetail", eventType: "view" },
+      }),
+    );
+
+    expect(ctx.events).toHaveLength(1);
+    expect(ctx.captures).toHaveLength(1);
+    expect(ctx.events[0]?.screenshotId).toBeDefined();
   });
 
   it("clearSession: 이벤트·스크린샷·세션 모두 비움", async () => {

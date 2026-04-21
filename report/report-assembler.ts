@@ -45,8 +45,15 @@ export function createReportAssembler(
       const state = await deps.sessionSource.getState();
       if (!state.session) return null;
 
-      const specs = await deps.specsCacheReader.read();
-      if (!specs || specs.length === 0) return null;
+      const allSpecs = await deps.specsCacheReader.read();
+      if (!allSpecs || allSpecs.length === 0) return null;
+
+      // 리포트의 검증 결과는 사용자가 녹화 시작 시 선택한 이벤트로 국한한다.
+      // 캐시 자체는 전체 스펙을 보존 — 선택 변경 시 재로드 없이 재어셈블 가능하고
+      // R5 unexpected(선택 외 이벤트 감지)도 전체 스펙 맥락과 무관하게 동작한다.
+      const targetSet = new Set(state.targetEventNames);
+      const specs = allSpecs.filter((s) => targetSet.has(s.amplitudeEventName));
+      if (specs.length === 0) return null;
 
       const captured = await deps.sessionSource.listCurrentEvents();
       const screenshotDataUrls = await loadScreenshotDataUrls(
