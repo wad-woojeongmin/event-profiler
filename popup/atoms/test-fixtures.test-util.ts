@@ -6,6 +6,7 @@
 
 import type { EventSpec } from "@/types/spec.ts";
 import type { RecordingSessionState } from "@/types/messages.ts";
+import type { ValidationReport } from "@/types/validation.ts";
 
 import type { BackgroundClient } from "../ports/background-client.ts";
 
@@ -26,6 +27,8 @@ export interface FakeBackgroundClient extends BackgroundClient {
   setSessionState(state: RecordingSessionState): void;
   /** `getActiveTab` 반환값 세팅. 기본 `{id: 1, url: "https://www.catchtable.co.kr/"}`. */
   setActiveTab(tab: { id: number; url: string | undefined }): void;
+  /** `getValidationSnapshot`이 반환할 스냅샷 세팅. 기본 `null`. */
+  setValidationSnapshot(report: ValidationReport | null): void;
   /** startRecording/stopRecording/authenticate 호출 로그. */
   readonly calls: {
     startRecording: Array<{ targetEventNames: string[]; tabId: number }>;
@@ -53,6 +56,7 @@ export function createFakeBackgroundClient(): FakeBackgroundClient {
     id: 1,
     url: "https://www.catchtable.co.kr/",
   };
+  let validationSnapshot: ValidationReport | null = null;
   const calls = {
     startRecording: [] as Array<{ targetEventNames: string[]; tabId: number }>,
     stopRecording: 0,
@@ -84,6 +88,9 @@ export function createFakeBackgroundClient(): FakeBackgroundClient {
     setActiveTab(tab) {
       activeTab = tab;
     },
+    setValidationSnapshot(report) {
+      validationSnapshot = report;
+    },
     emit(state) {
       sessionState = state;
       listeners.forEach((fn) => fn(state));
@@ -107,6 +114,9 @@ export function createFakeBackgroundClient(): FakeBackgroundClient {
     },
     async generateReport() {
       calls.generateReport += 1;
+    },
+    async getValidationSnapshot() {
+      return validationSnapshot;
     },
     async getActiveTab() {
       return activeTab;

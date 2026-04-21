@@ -1,11 +1,17 @@
-// filteredSpecsAtom 파생 로직 테스트.
+// 칼럼별 필터 파생 로직 테스트.
 
 import { createStore } from "jotai";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import type { EventSpec } from "@/types/spec.ts";
 
-import { filteredSpecsAtom, filterQueryAtom } from "./filter-atoms.ts";
+import {
+  selectedFilteredSpecsAtom,
+  selectedQueryAtom,
+  unselectedFilteredSpecsAtom,
+  unselectedQueryAtom,
+} from "./filter-atoms.ts";
+import { selectedEventNamesAtom } from "./recording-atoms.ts";
 import { specsAtom } from "./specs-atoms.ts";
 
 function makeSpec(overrides: Partial<EventSpec> = {}): EventSpec {
@@ -33,28 +39,43 @@ beforeEach(() => {
   store = createStore();
 });
 
-describe("filteredSpecsAtom", () => {
-  it("빈 쿼리는 전체를 그대로 반환한다", () => {
-    const specs = [makeSpec(), makeSpec({ amplitudeEventName: "other" })];
-    store.set(specsAtom, specs);
-    expect(store.get(filteredSpecsAtom)).toEqual(specs);
+describe("unselectedFilteredSpecsAtom", () => {
+  it("선택되지 않은 스펙만 반환한다", () => {
+    const a = makeSpec({ amplitudeEventName: "a" });
+    const b = makeSpec({ amplitudeEventName: "b" });
+    const c = makeSpec({ amplitudeEventName: "c" });
+    store.set(specsAtom, [a, b, c]);
+    store.set(selectedEventNamesAtom, new Set(["b"]));
+    expect(store.get(unselectedFilteredSpecsAtom)).toEqual([a, c]);
   });
 
-  it("amplitudeEventName·humanEventName·pageName 중 어느 필드든 부분 일치하면 통과", () => {
-    const a = makeSpec({ amplitudeEventName: "home_banner_click" });
-    const b = makeSpec({ humanEventName: "click__banner" });
-    const c = makeSpec({ pageName: "BannerPage" });
-    const d = makeSpec({ amplitudeEventName: "unrelated" });
-    store.set(specsAtom, [a, b, c, d]);
+  it("쿼리를 미선택 집합 안에만 적용한다", () => {
+    const a = makeSpec({ amplitudeEventName: "home_banner" });
+    const b = makeSpec({ amplitudeEventName: "detail_banner" });
+    const c = makeSpec({ amplitudeEventName: "footer" });
+    store.set(specsAtom, [a, b, c]);
+    store.set(selectedEventNamesAtom, new Set(["home_banner"]));
+    store.set(unselectedQueryAtom, "banner");
+    expect(store.get(unselectedFilteredSpecsAtom)).toEqual([b]);
+  });
+});
 
-    store.set(filterQueryAtom, "banner");
-    expect(store.get(filteredSpecsAtom)).toEqual([a, b, c]);
+describe("selectedFilteredSpecsAtom", () => {
+  it("선택된 스펙만 반환한다", () => {
+    const a = makeSpec({ amplitudeEventName: "alpha" });
+    const b = makeSpec({ amplitudeEventName: "beta" });
+    store.set(specsAtom, [a, b]);
+    store.set(selectedEventNamesAtom, new Set(["beta"]));
+    expect(store.get(selectedFilteredSpecsAtom)).toEqual([b]);
   });
 
-  it("대소문자를 구분하지 않는다", () => {
-    const a = makeSpec({ amplitudeEventName: "Shop_Detail" });
-    store.set(specsAtom, [a]);
-    store.set(filterQueryAtom, "detail");
-    expect(store.get(filteredSpecsAtom)).toEqual([a]);
+  it("미선택 쿼리와 독립적으로 동작한다", () => {
+    const a = makeSpec({ amplitudeEventName: "home" });
+    const b = makeSpec({ amplitudeEventName: "detail" });
+    store.set(specsAtom, [a, b]);
+    store.set(selectedEventNamesAtom, new Set(["home", "detail"]));
+    store.set(unselectedQueryAtom, "home");
+    store.set(selectedQueryAtom, "detail");
+    expect(store.get(selectedFilteredSpecsAtom)).toEqual([b]);
   });
 });

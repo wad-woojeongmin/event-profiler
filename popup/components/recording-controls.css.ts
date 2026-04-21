@@ -64,6 +64,21 @@ export const buttonVariants = styleVariants({
 export const buttonRow = style({
   display: "flex",
   gap: vars.space.sm,
+  alignItems: "stretch",
+});
+
+export const stopCheckbox = style({
+  display: "inline-flex",
+  alignItems: "center",
+  gap: vars.space.sm,
+  padding: `${vars.space.sm} ${vars.space.md}`,
+  border: `1px solid ${vars.color.border}`,
+  borderRadius: vars.radius.md,
+  background: vars.color.bg,
+  color: vars.color.text,
+  cursor: "pointer",
+  fontSize: vars.font.size.sm,
+  flex: "0 0 auto",
 });
 
 export const guardMessage = style({

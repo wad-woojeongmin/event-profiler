@@ -11,6 +11,7 @@
 
 import type { EventSpec } from "@/types/spec.ts";
 import type { RecordingSessionState } from "@/types/messages.ts";
+import type { ValidationReport } from "@/types/validation.ts";
 
 /**
  * 팝업이 필요로 하는 백엔드 연산을 단일 인터페이스로 묶는다.
@@ -53,6 +54,14 @@ export interface BackgroundClient {
 
   /** M8 리포트 HTML을 새 탭으로 띄운다. */
   generateReport(): Promise<void>;
+
+  /**
+   * 현재 세션에 대한 라이브 검증 스냅샷.
+   *
+   * 배경 SW가 최종 리포트와 동일한 소스(스펙 캐시 + 현재 세션 이벤트 + defaultRules)로
+   * `validate()`를 호출한다. 활성 세션이 없거나 스펙 캐시가 비면 `null`.
+   */
+  getValidationSnapshot(): Promise<ValidationReport | null>;
 
   /**
    * 현재 활성 탭의 id와 url. url은 호스트 매치 판정("지원 페이지" 배너 + 녹화
