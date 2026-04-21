@@ -20,6 +20,13 @@ describe("isSupportedUrl", () => {
     expect(isSupportedUrl("https://a.b.catchtable.co.kr/")).toBe(true);
   });
 
+  it("accepts ports for local dev hosts", () => {
+    expect(isSupportedUrl("https://local.catchtable.co.kr:3001/")).toBe(true);
+    expect(isSupportedUrl("https://local.catchtable.co.kr:3001/orders")).toBe(
+      true,
+    );
+  });
+
   it("rejects non-https schemes", () => {
     expect(isSupportedUrl("http://catchtable.co.kr/")).toBe(false);
     expect(isSupportedUrl("chrome://newtab/")).toBe(false);

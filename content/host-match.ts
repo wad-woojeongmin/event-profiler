@@ -15,8 +15,11 @@ export const CATCHTABLE_MATCH_PATTERN = "https://*.catchtable.co.kr/*" as const;
 // 위 match pattern의 JS 표현. 의도적으로 엄격하게 작성:
 // - `^https:` 로 http/ftp 등 배제
 // - `([^/]+\.)?` 로 루트 + 임의 깊이 서브도메인 허용 (Chrome `*.`와 동등)
+// - `(:\d+)?` 로 로컬 개발 서버(`local.catchtable.co.kr:3001` 등)의 포트 허용.
+//   Chrome match pattern은 포트를 명시하지 않으면 모든 포트를 매칭하므로
+//   manifest 패턴과 동등하게 맞추기 위한 보정.
 // - 마지막 `\/` 로 `catchtable.co.kr.evil.com` 같은 suffix-injection 차단
-const SUPPORTED_HOST_RE = /^https:\/\/([^/]+\.)?catchtable\.co\.kr\//i;
+const SUPPORTED_HOST_RE = /^https:\/\/([^/]+\.)?catchtable\.co\.kr(:\d+)?\//i;
 
 /**
  * 주어진 URL이 content script 주입 대상인지 판정.
