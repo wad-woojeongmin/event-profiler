@@ -1,8 +1,8 @@
-// 리포트 헤더. 로고·타이틀·생성시각(mono) + 우측 메타 3개 + 내보내기/공유 버튼.
+// 리포트 헤더. 로고·타이틀·생성시각(mono) + 우측 메타 3개 + 내보내기 버튼.
 //
-// 내보내기/공유 액션은 아직 배경 핸들러가 없으므로 자리만 잡는다(클릭 시 console.info).
-// 버튼은 네이티브 `<button type="button">` — 디자인 원본이 `<div onClick>`이었던 것과
-// 구분.
+// 내보내기 클릭 처리는 상위(ReportView)가 ReportData 전체를 들고 있으므로
+// `onExport` 콜백으로 위임. 버튼은 네이티브 `<button type="button">` —
+// 디자인 원본이 `<div onClick>`이었던 것과 구분.
 
 import type { CapturedEvent } from "@/types/event.ts";
 import type { ValidationReport } from "@/types/validation.ts";
@@ -17,9 +17,10 @@ import * as styles from "./header.css.ts";
 interface Props {
   report: ValidationReport;
   captured: CapturedEvent[];
+  onExport: () => void;
 }
 
-export function Header({ report, captured }: Props) {
+export function Header({ report, captured, onExport }: Props) {
   const { session, stats, generatedAt } = report;
   const duration = (session.endedAt ?? Date.now()) - session.startedAt;
   const host = primaryHost(captured.map((c) => c.pageUrl));
@@ -50,9 +51,7 @@ export function Header({ report, captured }: Props) {
         <button
           type="button"
           className={styles.btnDefault}
-          onClick={() =>
-            alert("내보내기 기능은 추후 지원 예정입니다. (HTML 다운로드)")
-          }
+          onClick={onExport}
         >
           <DownloadIcon />
           내보내기

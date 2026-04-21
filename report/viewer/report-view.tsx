@@ -5,7 +5,7 @@
 // 섹션 순서를 그대로 따른다:
 //   Header · BigStats · Timeline(필름스트립 정렬) · [결과표 | 상세] · 예외 리스트.
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import type { ReportData } from "@/types/storage.ts";
 import type { ValidationResult } from "@/types/validation.ts";
@@ -14,6 +14,7 @@ import { EventDetail } from "./event-detail.tsx";
 import { ExceptionList } from "./exception-list.tsx";
 import { Header } from "./header.tsx";
 import { ResultsTable } from "./results-table.tsx";
+import { formatReportAsText } from "./report-text.ts";
 import { StatsDashboard } from "./stats-dashboard.tsx";
 import { TimelineChart } from "./timeline-chart.tsx";
 import * as styles from "./report-view.css.ts";
@@ -48,10 +49,31 @@ export function ReportView({ data }: Props) {
   const selected =
     report.results[selectedIdx] ?? report.results[0];
 
+  // 내보내기: ReportData를 평문으로 직렬화해 클립보드에 복사. 클립보드 API가
+  // 거부되는 환경(HTTPS 아님·포커스 없음 등)을 대비해 실패 시 새 창에 텍스트를 띄워
+  // 사용자가 직접 복사하도록 폴백. 스크린샷은 이미지라 텍스트 직렬화 대상이 아니다.
+  const handleExport = useCallback(async () => {
+    const text = formatReportAsText(data);
+    try {
+      await navigator.clipboard.writeText(text);
+      alert("리포트 텍스트가 클립보드에 복사되었습니다.");
+    } catch {
+      const w = window.open("", "_blank");
+      if (w) {
+        w.document.body.innerText = text;
+      } else {
+        console.info(text);
+        alert(
+          "클립보드 복사에 실패했습니다. 콘솔에 출력된 텍스트를 복사해 주세요.",
+        );
+      }
+    }
+  }, [data]);
+
   return (
     <main className={styles.page}>
       <div className={styles.container}>
-        <Header report={report} captured={capturedAll} />
+        <Header report={report} captured={capturedAll} onExport={handleExport} />
         <div className={styles.body}>
           <StatsDashboard stats={report.stats} />
           <TimelineChart
