@@ -1,7 +1,8 @@
 // 이벤트 선택 루트 — 두 칼럼(미선택/선택) 레이아웃.
 //
 // idle phase에서만 렌더된다. 녹화 중/종료 phase에서는 `RecordingDashboard`가
-// 대신 렌더되므로 체크박스 disabled 분기가 필요 없다.
+// 대신 렌더되므로 체크박스 disabled 분기가 필요 없다. 스펙 로드 상태와 선택
+// 카운트는 `SpecsContextHeader`가 담당해서 여기서는 2칼럼 조작 UI만 다룬다.
 
 import { useAtomValue, useSetAtom } from "jotai";
 
@@ -54,8 +55,8 @@ export function SpecSelector() {
       </div>
 
       <div className={styles.columns}>
-        <UnselectedColumn />
         <SelectedColumn />
+        <UnselectedColumn />
       </div>
     </section>
   );

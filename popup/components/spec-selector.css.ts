@@ -6,8 +6,7 @@ export const wrapper = style({
   display: "flex",
   flexDirection: "column",
   gap: vars.space.sm,
-  padding: vars.space.lg,
-  borderBottom: `1px solid ${vars.color.border}`,
+  padding: vars.space.md,
   flex: 1,
   minHeight: 0,
 });
@@ -101,7 +100,7 @@ export const list = style({
   overflowY: "auto",
   border: `1px solid ${vars.color.border}`,
   borderRadius: vars.radius.md,
-  maxHeight: "320px",
+  flex: 1,
   minHeight: "120px",
   display: "flex",
   flexDirection: "column",

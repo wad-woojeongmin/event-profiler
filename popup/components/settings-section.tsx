@@ -1,7 +1,11 @@
-// 상단 설정 섹션 — 시트 링크, 스펙 로드/로그인 버튼, 로드 상태 표시.
+// 스펙 연결(Connect) 화면.
 //
-// 단일 고정 시트만 사용하므로 URL 입력 필드는 두지 않는다
-// (docs/modules/m4-popup.md §UI 구성).
+// 스펙이 아직 로드되지 않은 idle 상태에서만 렌더된다(popup-app의 PhaseLayout 분기).
+// 시트 URL은 고정이라 입력/선택 UI는 두지 않는다(docs/modules/m4-popup.md §UI 구성).
+//
+// 로그인 + 스펙 로드를 한 CTA 버튼으로 통합했다. `loadSpecsAtom`이 silent token
+// 조회를 내부적으로 시도하므로 첫 클릭에서 OAuth → 로드까지 이어지고, 두 번째
+// 클릭부터는 바로 로드만 돈다.
 
 import { useAtomValue, useSetAtom } from "jotai";
 
@@ -9,7 +13,6 @@ import { SPEC_SHEET_URL } from "@/sheets/constants.ts";
 
 import {
   authStatusAtom,
-  authenticateAtom,
   loadSpecsAtom,
   specsAtom,
   specsErrorAtom,
@@ -18,64 +21,77 @@ import {
 
 import * as styles from "./settings-section.css.ts";
 
-const AUTH_BUTTON_LABEL = {
-  idle: "Google 로그인",
-  authenticating: "로그인 중…",
-  authenticated: "✓ 로그인됨",
-  failed: "Google 로그인 (재시도)",
-} as const;
-
 export function SettingsSection() {
   const loadState = useAtomValue(specsLoadStateAtom);
   const error = useAtomValue(specsErrorAtom);
   const specs = useAtomValue(specsAtom);
   const authStatus = useAtomValue(authStatusAtom);
   const loadSpecs = useSetAtom(loadSpecsAtom);
-  const authenticate = useSetAtom(authenticateAtom);
 
   const isLoading = loadState === "loading";
   const isAuthenticating = authStatus === "authenticating";
-  const isAuthenticated = authStatus === "authenticated";
-  const authButtonClass = isAuthenticated ? styles.successButton : styles.button;
+  const isBusy = isLoading || isAuthenticating;
+
+  const ctaLabel = isLoading
+    ? "스펙 불러오는 중…"
+    : isAuthenticating
+      ? "로그인 중…"
+      : authStatus === "authenticated"
+        ? "스펙 불러오기"
+        : "Google로 로그인 후 스펙 불러오기";
 
   return (
     <section className={styles.wrapper}>
-      <div className={styles.label}>스펙 시트</div>
-      <a
-        className={styles.link}
-        href={SPEC_SHEET_URL}
-        target="_blank"
-        rel="noreferrer noopener"
-      >
-        {SPEC_SHEET_URL}
-      </a>
-
-      <div className={styles.row}>
-        <button
-          className={styles.primaryButton}
-          disabled={isLoading}
-          onClick={() => void loadSpecs()}
-        >
-          {isLoading ? "불러오는 중…" : "스펙 불러오기"}
-        </button>
-        <button
-          className={authButtonClass}
-          disabled={isLoading || isAuthenticating}
-          onClick={() => void authenticate()}
-          aria-live="polite"
-        >
-          {AUTH_BUTTON_LABEL[authStatus]}
-        </button>
+      <div className={styles.intro}>
+        <h1 className={styles.heading}>Event Profiler</h1>
+        <p className={styles.description}>
+          웹앱에서 발생하는 이벤트를 녹화하고 스펙과 비교 검증합니다.
+        </p>
       </div>
 
-      {loadState === "loaded" && (
-        <div
-          className={specs.length === 0 ? styles.errorText : styles.meta}
-          role="status"
+      <div className={styles.sheetCard}>
+        <div className={styles.sheetLabel}>스펙 시트</div>
+        <a
+          className={styles.sheetLink}
+          href={SPEC_SHEET_URL}
+          target="_blank"
+          rel="noreferrer noopener"
         >
-          {specs.length === 0
-            ? "불러온 스펙이 없습니다. 로그 정의 탭이 비어있거나 스펙 형식과 일치하지 않습니다."
-            : `${specs.length}개 스펙 로드 완료`}
+          {SPEC_SHEET_URL}
+        </a>
+        {loadState === "loaded" && specs.length > 0 && (
+          <div className={styles.sheetLoaded} role="status">
+            <span className={styles.checkMark} aria-hidden="true">
+              ✓
+            </span>
+            <span>
+              <strong className={styles.loadedCount}>
+                {specs.length.toLocaleString()}
+              </strong>
+              개 스펙 로드 완료
+            </span>
+          </div>
+        )}
+      </div>
+
+      <div className={styles.spacer} />
+
+      <button
+        type="button"
+        className={styles.primaryButton}
+        disabled={isBusy}
+        onClick={() => void loadSpecs()}
+      >
+        {ctaLabel}
+      </button>
+      <p className={styles.footnote}>
+        OAuth 권한으로 지정된 스펙 시트에만 접근합니다.
+      </p>
+
+      {loadState === "loaded" && specs.length === 0 && (
+        <div className={styles.errorText} role="status">
+          불러온 스펙이 없습니다. 로그 정의 탭이 비어있거나 스펙 형식과 일치하지
+          않습니다.
         </div>
       )}
       {error && (

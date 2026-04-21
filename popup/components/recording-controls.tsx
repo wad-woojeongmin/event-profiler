@@ -1,8 +1,8 @@
 // 녹화 제어 푸터.
 //
 // - idle: "녹화 시작" 전용 풀폭 버튼. 선택 0건/비지원 탭에서 disabled.
-// - recording: "녹화 종료" 체크박스 + "리포트 보기"(비활성, 가드 안내). 체크 순간
-//   `stopRecording`을 호출한다.
+// - recording: "다시 선택"(secondary) + "녹화 종료 · 리포트 보기"(fail-colored).
+//   종료 버튼을 누르면 stop → generate가 순차 실행된다.
 // - recording_done: "이벤트 다시 선택"(secondary) + "리포트 보기"(primary).
 //   "이벤트 다시 선택"은 세션을 초기화해 idle phase로 되돌리며, 이전 선택은
 //   `selectedEventNamesAtom`에 남아있어 그대로 다시 녹화를 시작할 수 있다.
@@ -43,21 +43,20 @@ export function RecordingControls() {
     return (
       <section className={styles.wrapper}>
         <div className={styles.buttonRow}>
-          <label className={styles.stopCheckbox}>
-            <input
-              type="checkbox"
-              checked={false}
-              onChange={() => void stop()}
-            />
-            <span>녹화 종료</span>
-          </label>
           <button
             type="button"
-            className={styles.buttonVariants.start}
-            onClick={() => void generate()}
-            disabled
+            className={styles.buttonVariants.secondary}
+            onClick={() => void reset()}
           >
-            리포트 보기
+            다시 선택
+          </button>
+          <button
+            type="button"
+            className={styles.buttonVariants.stop}
+            onClick={() => void stop()}
+          >
+            <span className={styles.stopIcon} aria-hidden="true" />
+            녹화 종료 · 리포트 보기
           </button>
         </div>
       </section>
@@ -99,7 +98,8 @@ export function RecordingControls() {
         onClick={() => void start()}
         disabled={startDisabled}
       >
-        ● 녹화 시작
+        <span className={styles.recIcon} aria-hidden="true" />
+        녹화 시작 · {selected.size}개 이벤트
       </button>
     </section>
   );
