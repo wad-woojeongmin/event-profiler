@@ -50,18 +50,12 @@ export function Header({ report, captured }: Props) {
         <button
           type="button"
           className={styles.btnDefault}
-          onClick={() => console.info("export 미구현 — Phase 2")}
+          onClick={() =>
+            alert("내보내기 기능은 추후 지원 예정입니다. (HTML 다운로드)")
+          }
         >
           <DownloadIcon />
           내보내기
-        </button>
-        <button
-          type="button"
-          className={styles.btnPrimary}
-          onClick={() => console.info("share 미구현 — Phase 2")}
-        >
-          <CopyIcon />
-          공유
         </button>
       </div>
     </header>
@@ -107,21 +101,3 @@ function DownloadIcon() {
   );
 }
 
-function CopyIcon() {
-  return (
-    <svg
-      width="11"
-      height="11"
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <rect x="5" y="5" width="8" height="8" rx="1" />
-      <path d="M3 11V4a1 1 0 011-1h7" />
-    </svg>
-  );
-}
