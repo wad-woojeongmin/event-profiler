@@ -121,6 +121,8 @@ export const list = style({
   background: vars.color.bg,
 });
 
+// 행 자체가 role="checkbox"이므로 키보드 포커스가 온다. 포커스 링이 없으면
+// 키보드 사용자가 현재 위치를 알 수 없다.
 export const item = style({
   display: "flex",
   alignItems: "flex-start",
@@ -130,6 +132,10 @@ export const item = style({
   borderBottom: `1px solid ${vars.color.divider}`,
   selectors: {
     "&:hover": { background: vars.color.hover },
+    "&:focus-visible": {
+      outline: `2px solid ${vars.color.primary}`,
+      outlineOffset: "-2px",
+    },
   },
 });
 

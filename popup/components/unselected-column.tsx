@@ -1,8 +1,8 @@
 // 미선택 칼럼.
 //
-// 좌측: 체크박스로 아직 선택되지 않은 스펙을 노출. 체크 또는 행 클릭 시
-// `toggleSelection`으로 우측 선택 칼럼으로 이동한다. 칼럼 헤더의 "전체 추가"는
-// 현재 필터 조건에 걸린 스펙만 일괄 선택한다.
+// 좌측: 아직 선택되지 않은 스펙을 노출. 행 클릭 또는 Space/Enter 키로
+// `toggleSelection`을 호출해 우측 선택 칼럼으로 이동시킨다. 칼럼 헤더의
+// "전체 추가"는 현재 필터 조건에 걸린 스펙만 일괄 선택한다.
 
 import { useAtomValue, useSetAtom } from "jotai";
 
@@ -72,12 +72,21 @@ export function UnselectedColumn() {
           </div>
         </div>
       ) : (
-        <ul className={styles.list}>
+        <ul className={styles.list} role="list">
           {filtered.map((spec) => (
             <li
               key={spec.amplitudeEventName + ":" + spec.sourceRow}
               className={styles.item}
+              role="checkbox"
+              aria-checked={false}
+              tabIndex={0}
               onClick={() => toggle(spec.amplitudeEventName)}
+              onKeyDown={(e) => {
+                if (e.key === " " || e.key === "Enter") {
+                  e.preventDefault();
+                  toggle(spec.amplitudeEventName);
+                }
+              }}
             >
               <span className={styles.checkboxEmpty} aria-hidden="true" />
               <div className={styles.itemMain}>

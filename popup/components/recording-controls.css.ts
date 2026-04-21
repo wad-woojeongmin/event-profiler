@@ -12,6 +12,8 @@ export const wrapper = style({
   flexShrink: 0,
 });
 
+// wrapper가 flex column이라 단독 버튼은 stretch로 폭을 채운다(width:100% 불필요).
+// buttonRow 안에서는 variants의 flex 비율이 폭을 결정한다.
 const baseButton = style({
   border: "1px solid transparent",
   padding: `${vars.space.sm} ${vars.space.md}`,
@@ -20,7 +22,6 @@ const baseButton = style({
   fontSize: vars.font.size.md,
   height: "40px",
   cursor: "pointer",
-  width: "100%",
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
@@ -30,10 +31,14 @@ const baseButton = style({
   },
 });
 
+// buttonRow 안에서 "다시 선택"(secondary):"녹화 종료"(stop) = 1:2 폭 비율.
+// 단독 사용 시에는 wrapper가 stretch시키므로 flex:1이 있어도 전체 폭을 차지한다.
 export const buttonVariants = styleVariants({
   start: [
     baseButton,
     {
+      // idle: 단독 버튼. recording_done: buttonRow 안에서 secondary(flex:1)와 1:2.
+      flex: 2,
       background: vars.color.primary,
       color: vars.color.primaryText,
       selectors: {
@@ -44,6 +49,7 @@ export const buttonVariants = styleVariants({
   stop: [
     baseButton,
     {
+      flex: 2,
       background: vars.color.failSolid,
       color: vars.color.primaryText,
       selectors: {
@@ -54,6 +60,7 @@ export const buttonVariants = styleVariants({
   secondary: [
     baseButton,
     {
+      flex: 1,
       background: vars.color.surface,
       borderColor: vars.color.border,
       color: vars.color.text,
@@ -70,8 +77,6 @@ export const buttonRow = style({
   alignItems: "stretch",
 });
 
-// 첫 번째(secondary) 버튼은 flex:1, 두 번째(stop) 버튼은 flex:2로 우세하게.
-// styleVariants의 width:100%이 flex 컨테이너 안에서는 기본 stretch에 무해하다.
 export const stopIcon = style({
   width: "10px",
   height: "10px",
