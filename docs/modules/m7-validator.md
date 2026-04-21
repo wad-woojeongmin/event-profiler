@@ -48,6 +48,7 @@ export interface ValidationRule {
 
 - 시트에 enum/타입이 없으므로 **값 타입 검증 없음** (Phase 2)
 - `referencedExtensions`는 현재 resolve 안 됨 → R2에서 해당 이벤트는 `params`만으로 판정. 공통 Extension 정의가 추가되면 확장.
+- **R6 암묵 선언 (taxonomy 키)**: `pageName` / `sectionName` / `actionName` / `eventType` / `logType`, 그리고 시트 원본 헤더 동의어 `objectContainer` / `objectType`는 시트 컬럼 레벨로 선언되어 `EventSpec.params`에 담기지 않는다. 웹앱은 모든 이벤트에 기본으로 이 키들을 싣기 때문에 R6에서는 `spec.params`와 union해 미선언으로 잡지 않는다 (`shared/taxonomy-param-keys.ts`).
 
 ### 상태 결정 우선순위
 
