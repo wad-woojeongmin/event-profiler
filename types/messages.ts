@@ -2,6 +2,7 @@
 // 관련 모듈 문서를 함께 업데이트하고, 영향 범위를 PR 설명에 명시한다.
 
 import type { CapturedEvent, RecordingSession } from "./event.ts";
+import type { ValidationReport } from "./validation.ts";
 
 /**
  * 웹앱(M1) → Content Script(M2)가 window.postMessage로 전달하는 페이로드.
@@ -54,6 +55,15 @@ export interface ExtensionProtocol {
 
   /** M4 → M3. 리포트 생성 트리거 (M8 호출). */
   generateReport(): void;
+
+  /**
+   * M4 → M3. 세션 진행 중 라이브 검증 스냅샷.
+   *
+   * 최종 `generateReport`가 쓰는 입력(스펙 캐시 + 현재 세션 이벤트 + defaultRules)과
+   * 동일한 소스로 `validate()`를 호출한다. 세션이 없거나 스펙 캐시가 비면 `null`.
+   * 스크린샷은 포함하지 않고(대시보드에서 불필요) 순수 검증 결과만 돌려준다.
+   */
+  getValidationSnapshot(): ValidationReport | null;
 }
 
 /** Popup이 현재 세션 UI를 재구성하기 위해 필요한 상태 스냅샷. */

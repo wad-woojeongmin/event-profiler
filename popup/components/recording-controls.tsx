@@ -1,18 +1,21 @@
-// 녹화 상태에 따라 녹화 시작/진행/완료 3개 화면을 분기한다.
+// 녹화 제어 푸터.
 //
-// 경과 시간은 세션 `startedAt`에서 현재 시각까지의 차이로 표시한다. 팝업이 닫혔다
-// 다시 열려도 startedAt은 SW에 영속되므로 정확한 경과가 복원된다.
+// - idle: "녹화 시작" 전용 풀폭 버튼. 선택 0건/비지원 탭에서 disabled.
+// - recording: "녹화 종료" 체크박스 + "리포트 보기"(비활성, 가드 안내). 체크 순간
+//   `stopRecording`을 호출한다.
+// - recording_done: "다시 녹화"(secondary) + "리포트 보기"(primary).
+//
+// 경과 시간·수집 건수·세부 상태는 `RecordingDashboard`가 표시하므로 여기서는
+// 버튼 그룹만 담당한다.
 
 import { useAtomValue, useSetAtom } from "jotai";
-import { useEffect, useState } from "react";
 
 import {
   generateReportAtom,
   recordingPhaseAtom,
-  recordingSessionAtom,
+  selectedEventNamesAtom,
   startRecordingAtom,
   stopRecordingAtom,
-  selectedEventNamesAtom,
 } from "../atoms/recording-atoms.ts";
 import { specsAtom } from "../atoms/specs-atoms.ts";
 import { isSupportedTabAtom } from "../atoms/tab-atoms.ts";
@@ -21,7 +24,6 @@ import * as styles from "./recording-controls.css.ts";
 
 export function RecordingControls() {
   const phase = useAtomValue(recordingPhaseAtom);
-  const session = useAtomValue(recordingSessionAtom);
   const selected = useAtomValue(selectedEventNamesAtom);
   const isSupported = useAtomValue(isSupportedTabAtom);
   const specs = useAtomValue(specsAtom);
@@ -29,60 +31,38 @@ export function RecordingControls() {
   const stop = useSetAtom(stopRecordingAtom);
   const generate = useSetAtom(generateReportAtom);
 
-  // SpecsBridge가 팝업 마운트 시 `local:specsCache`로부터 specsAtom을 복원하므로,
-  // 재오픈 후에도 캐시에 남은 스펙이 있으면 이 값이 채워진다. M8 어셈블러가 읽는
-  // 소스(캐시)와 UI 소스가 동일한 셈이라 플래그 하나로 가드가 성립한다.
   const canGenerate = specs.length > 0;
+  // isSupported === null은 hydrate 전으로 허용 쪽으로 편향(깜빡임 방지). 액션 아톰이 재확인.
+  const startDisabled = selected.size === 0 || isSupported === false;
 
-  if (phase === "recording" && session.session) {
+  if (phase === "recording") {
     return (
       <section className={styles.wrapper}>
-        <div className={styles.stats}>
-          <span>
-            <span className={styles.statLabel}>경과</span>
-            <ElapsedTime startedAt={session.session.startedAt} />
-          </span>
-          <span>
-            <span className={styles.statLabel}>수집</span>
-            {session.capturedCount}건
-          </span>
+        <div className={styles.buttonRow}>
+          <label className={styles.stopCheckbox}>
+            <input
+              type="checkbox"
+              checked={false}
+              onChange={() => void stop()}
+            />
+            <span>녹화 종료</span>
+          </label>
+          <button
+            type="button"
+            className={styles.buttonVariants.start}
+            onClick={() => void generate()}
+            disabled
+          >
+            리포트 보기
+          </button>
         </div>
-        <button
-          type="button"
-          className={styles.buttonVariants.stop}
-          onClick={() => void stop()}
-        >
-          ■ 녹화 종료
-        </button>
       </section>
     );
   }
 
-  // 재시작/시작 모두 동일 가드 — 선택 0건 또는 호스트 미매치는 차단.
-  // `isSupported === null`(아직 hydrate 전)은 허용 쪽으로 편향해 첫 프레임에서
-  // 버튼이 깜빡 disabled되는 것을 막는다; 액션 아톰이 재확인하므로 안전하다.
-  const startDisabled = selected.size === 0 || isSupported === false;
-
-  if (phase === "recording_done" && session.session) {
+  if (phase === "recording_done") {
     return (
       <section className={styles.wrapper}>
-        <div className={styles.stats}>
-          <span>
-            <span className={styles.statLabel}>총</span>
-            {session.capturedCount}건 수집
-          </span>
-        </div>
-        <button
-          type="button"
-          className={styles.buttonVariants.start}
-          onClick={() => void generate()}
-          disabled={!canGenerate}
-        >
-          리포트 생성 (새 탭)
-        </button>
-        {!canGenerate && (
-          <p className={styles.guardMessage}>스펙을 먼저 불러와 주세요.</p>
-        )}
         <div className={styles.buttonRow}>
           <button
             type="button"
@@ -92,7 +72,18 @@ export function RecordingControls() {
           >
             다시 녹화
           </button>
+          <button
+            type="button"
+            className={styles.buttonVariants.start}
+            onClick={() => void generate()}
+            disabled={!canGenerate}
+          >
+            리포트 보기
+          </button>
         </div>
+        {!canGenerate && (
+          <p className={styles.guardMessage}>스펙을 먼저 불러와 주세요.</p>
+        )}
       </section>
     );
   }
@@ -109,17 +100,4 @@ export function RecordingControls() {
       </button>
     </section>
   );
-}
-
-function ElapsedTime({ startedAt }: { startedAt: number }) {
-  const [now, setNow] = useState(() => Date.now());
-  // 표시 단위가 초이므로 1s tick이면 충분하다. 팝업 유휴 CPU를 절반으로 줄인다.
-  useEffect(() => {
-    const handle = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(handle);
-  }, []);
-  const seconds = Math.max(0, Math.floor((now - startedAt) / 1000));
-  const mm = String(Math.floor(seconds / 60)).padStart(2, "0");
-  const ss = String(seconds % 60).padStart(2, "0");
-  return <>{`${mm}:${ss}`}</>;
 }

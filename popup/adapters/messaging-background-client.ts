@@ -132,6 +132,10 @@ export function createMessagingBackgroundClient(
       await sendMessage("generateReport", undefined);
     },
 
+    async getValidationSnapshot() {
+      return sendMessage("getValidationSnapshot", undefined);
+    },
+
     async getActiveTab() {
       const [active] = await browser.tabs.query({
         active: true,

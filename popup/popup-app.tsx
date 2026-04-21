@@ -3,21 +3,26 @@
 // 엔트리포인트는 이 컴포넌트를 Jotai Provider로 감싸고 실구현 어댑터를 주입한다.
 // 테스트는 같은 컴포넌트를 쓰되 in-memory fake 클라이언트를 주입한다.
 
-import { Provider, useSetAtom } from "jotai";
+import { Provider, useAtomValue, useSetAtom } from "jotai";
 import { useEffect } from "react";
 
 import "./styles/reset.css.ts";
 
 import { backgroundClientAtom } from "./atoms/client-atom.ts";
-import { hydrateSessionAtom } from "./atoms/recording-atoms.ts";
+import { hydrateLiveReportAtom } from "./atoms/live-report-atoms.ts";
+import {
+  recordingPhaseAtom,
+  hydrateSessionAtom,
+} from "./atoms/recording-atoms.ts";
 import {
   hydrateAuthStatusAtom,
   hydrateSpecsFromCacheAtom,
 } from "./atoms/specs-atoms.ts";
 import { hydrateActiveTabAtom } from "./atoms/tab-atoms.ts";
 import { RecordingControls } from "./components/recording-controls.tsx";
+import { RecordingDashboard } from "./components/recording-dashboard.tsx";
 import { SettingsSection } from "./components/settings-section.tsx";
-import { SpecList } from "./components/spec-list.tsx";
+import { SpecSelector } from "./components/spec-selector.tsx";
 import { UnsupportedTabBanner } from "./components/unsupported-tab-banner.tsx";
 import type { BackgroundClient } from "./ports/background-client.ts";
 
@@ -33,11 +38,34 @@ export function PopupApp({ client }: PopupAppProps) {
       <TabBridge />
       <AuthBridge />
       <SpecsBridge />
-      <SettingsSection />
-      <SpecList />
-      <UnsupportedTabBanner />
-      <RecordingControls />
+      <LiveReportBridge />
+      <PhaseLayout />
     </Provider>
+  );
+}
+
+/**
+ * phase 기준 화면 분기.
+ * - idle: 설정 + 2칼럼 선택 + 지원 탭 배너 + 녹화 시작 푸터.
+ * - recording | recording_done: 대시보드 + 제어 푸터. 설정은 숨긴다.
+ */
+function PhaseLayout() {
+  const phase = useAtomValue(recordingPhaseAtom);
+  if (phase === "idle") {
+    return (
+      <>
+        <SettingsSection />
+        <SpecSelector />
+        <UnsupportedTabBanner />
+        <RecordingControls />
+      </>
+    );
+  }
+  return (
+    <>
+      <RecordingDashboard />
+      <RecordingControls />
+    </>
   );
 }
 
@@ -116,5 +144,28 @@ function SpecsBridge() {
   useEffect(() => {
     void hydrate();
   }, [hydrate]);
+  return null;
+}
+
+/**
+ * 녹화 중/종료 phase에서 라이브 검증 스냅샷을 500ms 주기로 pull한다. idle에서는
+ * 타이머를 가동하지 않아 SW 왕복을 아낀다. phase 전환 시 effect가 재실행되며
+ * 이전 타이머는 cleanup으로 해제된다.
+ */
+function LiveReportBridge() {
+  const phase = useAtomValue(recordingPhaseAtom);
+  const hydrate = useSetAtom(hydrateLiveReportAtom);
+  useEffect(() => {
+    if (phase === "idle") {
+      // idle 진입 시 즉시 클리어. 녹화 종료 후 다시 idle로 돌아간 경우 스냅샷 잔상 제거.
+      void hydrate();
+      return;
+    }
+    void hydrate();
+    const handle = setInterval(() => {
+      void hydrate();
+    }, 500);
+    return () => clearInterval(handle);
+  }, [phase, hydrate]);
   return null;
 }

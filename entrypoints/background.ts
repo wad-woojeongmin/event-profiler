@@ -23,6 +23,7 @@ import {
   createWxtReportWriter,
   createWxtSpecsCacheReader,
 } from "@/report/index.ts";
+import { defaultRules, validate } from "@/validator/index.ts";
 
 /** 배지 색: 녹화 중은 빨강, 완료는 초록. */
 const BADGE_REC_TEXT = "REC";
@@ -60,8 +61,10 @@ export default defineBackground(() => {
 
   // M8 리포트 어셈블러. specsCache read + 세션 이벤트 + 스크린샷 base64 변환 +
   // validate() 결과를 `local:reportData`에 write한다. 팝업(M4)이 이를 구독해 렌더.
+  const specsCacheReader = createWxtSpecsCacheReader();
+
   const reportAssembler = createReportAssembler({
-    specsCacheReader: createWxtSpecsCacheReader(),
+    specsCacheReader,
     screenshotReader: screenshotStore,
     reportWriter: createWxtReportWriter(),
     sessionSource: {
@@ -120,6 +123,23 @@ export default defineBackground(() => {
 
   onMessage("getSessionState", async () => {
     return controller.getState();
+  });
+
+  onMessage("getValidationSnapshot", async () => {
+    // 최종 리포트와 동일한 입력(스펙 캐시 + 현재 세션 이벤트 + defaultRules)을 써
+    // "라이브 대시보드가 보여준 상태"와 "최종 리포트 상태"가 어긋나지 않게 한다.
+    const state = await controller.getState();
+    if (!state.session) return null;
+    const specs = await specsCacheReader.read();
+    if (!specs || specs.length === 0) return null;
+    const captured = await controller.listCurrentEvents();
+    return validate(
+      specs,
+      captured,
+      state.targetEventNames,
+      state.session,
+      defaultRules,
+    );
   });
 
   onMessage("generateReport", async () => {
