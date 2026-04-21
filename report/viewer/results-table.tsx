@@ -1,174 +1,180 @@
-// 검증 결과 테이블. row 클릭 시 해당 이벤트의 이슈·수집 params·스크린샷을 펼친다.
+// 검증 결과 테이블. 행 선택 시 상위(report-view)가 관리하는 `selectedIdx`를 갱신하여
+// 우측 상세 패널이 같은 row 데이터를 렌더한다.
 //
-// 확장 상태는 row 단위 로컬 state로만 관리(리프 컴포넌트라 상위 트리를
-// 오염시키지 않음). 이 컴포넌트는 `ReportData`의 하위 `results` + `screenshotDataUrls`만
-// 받는 순수 컴포넌트라 향후 `renderToString` 경로에서도 초기 접힘 상태로 재사용 가능.
+// 디자인 원본은 `<tr onClick>`로만 선택을 처리했지만, 여기서는 키보드/스크린리더도
+// 쓸 수 있도록 `role=button` + `tabIndex=0` + `aria-pressed` + Enter/Space 키 핸들러를
+// 건다.
 
-import { useState } from "react";
+import type { KeyboardEvent } from "react";
 
-import type { CapturedEvent } from "@/types/event.ts";
 import type { ValidationResult } from "@/types/validation.ts";
 
-import { formatClock, statusLabel } from "./format.ts";
 import * as styles from "./results-table.css.ts";
 
 interface Props {
   results: ValidationResult[];
-  screenshotDataUrls: Record<string, string>;
+  selectedIdx: number;
+  onSelect: (idx: number) => void;
 }
 
-export function ResultsTable({ results, screenshotDataUrls }: Props) {
+type PillKind = "pass" | "fail" | "warn" | "missing";
+
+export function ResultsTable({ results, selectedIdx, onSelect }: Props) {
   if (results.length === 0) {
-    return <div className={styles.empty}>검증할 대상 스펙이 없습니다.</div>;
+    return (
+      <div className={styles.wrap}>
+        <div className={styles.headerBar}>
+          <div className={styles.headerTitle}>검증 결과</div>
+        </div>
+        <div className={styles.empty}>검증할 대상 스펙이 없습니다.</div>
+      </div>
+    );
   }
 
   return (
-    <div className={styles.tableWrap}>
+    <div className={styles.wrap}>
+      <div className={styles.headerBar}>
+        <div className={styles.headerTitle}>검증 결과</div>
+        <div className={styles.headerCount}>{results.length}개</div>
+      </div>
       <table className={styles.table}>
         <thead>
           <tr>
             <th className={styles.thStatus}>상태</th>
-            <th>이벤트</th>
-            <th className={styles.thCount}>수집</th>
-            <th>이슈</th>
+            <th>이벤트명</th>
+            <th className={styles.thPage}>페이지</th>
+            <th className={styles.thRight}>수집</th>
+            <th className={styles.thRight}>이슈</th>
+            <th className={styles.thChevron} aria-hidden="true" />
           </tr>
         </thead>
         <tbody>
-          {results.map((r) => (
-            <Row
-              key={r.spec.amplitudeEventName}
-              result={r}
-              screenshotDataUrls={screenshotDataUrls}
-            />
-          ))}
+          {results.map((r, i) => {
+            const kind = pillKindFor(r.status);
+            const selected = i === selectedIdx;
+            const handleKey = (e: KeyboardEvent<HTMLTableRowElement>) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onSelect(i);
+              }
+            };
+            return (
+              <tr
+                key={r.spec.amplitudeEventName}
+                className={selected ? styles.rowSelected : styles.row}
+                role="button"
+                tabIndex={0}
+                aria-pressed={selected}
+                onClick={() => onSelect(i)}
+                onKeyDown={handleKey}
+              >
+                <td>
+                  <StatusPill kind={kind} label={labelFor(r.status)} />
+                </td>
+                <td>
+                  <div className={styles.eventCell}>
+                    <EventName
+                      name={r.spec.humanEventName || r.spec.amplitudeEventName}
+                    />
+                    <span className={styles.eventFull}>
+                      {r.spec.amplitudeEventName}
+                    </span>
+                  </div>
+                </td>
+                <td className={styles.pageCell}>{r.spec.pageName}</td>
+                <td className={styles.numberCell}>{r.captured.length}</td>
+                <td className={styles.numberCell}>
+                  {r.issues.length > 0 ? (
+                    <span className={styles.issueHit}>{r.issues.length}</span>
+                  ) : (
+                    <span className={styles.issueEmpty}>—</span>
+                  )}
+                </td>
+                <td className={styles.chevronCell} aria-hidden="true">
+                  <ChevronRight />
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
   );
 }
 
-interface RowProps {
-  result: ValidationResult;
-  screenshotDataUrls: Record<string, string>;
-}
-
-function Row({ result, screenshotDataUrls }: RowProps) {
-  const [open, setOpen] = useState(false);
-  const { spec, captured, issues, status } = result;
-  const hasDetails = issues.length > 0 || captured.length > 0;
-
+/**
+ * 이벤트명은 `__` 기준으로 강조 분리. 디자인 원본은 `__`를 옅은 색으로 보여준다.
+ */
+function EventName({ name }: { name: string }) {
+  const parts = name.split(/(__)/);
   return (
-    <>
-      <tr
-        className={hasDetails ? styles.rowInteractive : styles.row}
-        onClick={hasDetails ? () => setOpen((v) => !v) : undefined}
-      >
-        <td>
-          <span className={styles.badge[status]}>{statusLabel(status)}</span>
-        </td>
-        <td>
-          <div className={styles.eventName}>{spec.amplitudeEventName}</div>
-          <div className={styles.eventMeta}>
-            {spec.pageName}
-            {spec.sectionName ? ` · ${spec.sectionName}` : ""}
-            {" · "}
-            {spec.eventType}
-          </div>
-        </td>
-        <td className={styles.capturedCount}>
-          {captured.length}
-          <span className={styles.capturedUnit}>건</span>
-        </td>
-        <td>
-          {issues.length === 0 ? (
-            <span className={styles.issueEmpty}>—</span>
-          ) : (
-            <span className={styles.issueSummary}>{issues.length}건</span>
-          )}
-        </td>
-      </tr>
-      {open && hasDetails && (
-        <tr className={styles.detailRow}>
-          <td colSpan={4}>
-            <RowDetails
-              captured={captured}
-              issues={issues}
-              screenshotDataUrls={screenshotDataUrls}
-            />
-          </td>
-        </tr>
+    <span className={styles.eventName}>
+      {parts.map((p, i) =>
+        p === "__" ? (
+          <span key={i} style={{ color: "oklch(65% 0.01 240)" }}>
+            {p}
+          </span>
+        ) : (
+          <span key={i}>{p}</span>
+        ),
       )}
-    </>
+    </span>
   );
 }
 
-interface DetailsProps {
-  captured: CapturedEvent[];
-  issues: ValidationResult["issues"];
-  screenshotDataUrls: Record<string, string>;
+interface PillProps {
+  kind: PillKind;
+  label: string;
 }
 
-function RowDetails({ captured, issues, screenshotDataUrls }: DetailsProps) {
+function StatusPill({ kind, label }: PillProps) {
   return (
-    <div className={styles.details}>
-      {issues.length > 0 && (
-        <div className={styles.detailsBlock}>
-          <div className={styles.detailsLabel}>이슈</div>
-          <ul className={styles.issueList}>
-            {issues.map((issue, i) => (
-              <li key={i} className={styles.issueItem}>
-                <span className={styles.severity[issue.severity]}>
-                  {issue.severity}
-                </span>
-                {issue.param && (
-                  <code className={styles.paramKey}>{issue.param}</code>
-                )}
-                <span>{issue.message}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {captured.length > 0 && (
-        <div className={styles.detailsBlock}>
-          <div className={styles.detailsLabel}>수집된 이벤트</div>
-          <ul className={styles.capturedList}>
-            {captured.map((c) => {
-              const shot = c.screenshotId
-                ? screenshotDataUrls[c.screenshotId]
-                : undefined;
-              return (
-                <li key={c.id} className={styles.capturedItem}>
-                  <div className={styles.capturedMeta}>
-                    <span className={styles.capturedTime}>
-                      {formatClock(c.timestamp)}
-                    </span>
-                    <span className={styles.capturedUrl}>{c.pageUrl}</span>
-                  </div>
-                  <pre className={styles.params}>
-                    {JSON.stringify(c.params, null, 2)}
-                  </pre>
-                  {shot && (
-                    <a
-                      className={styles.thumbLink}
-                      href={shot}
-                      target="_blank"
-                      rel="noreferrer noopener"
-                    >
-                      <img
-                        className={styles.thumb}
-                        src={shot}
-                        alt="스크린샷"
-                        loading="lazy"
-                      />
-                    </a>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
-    </div>
+    <span className={styles.pill[kind]} aria-label={`상태: ${label}`}>
+      <span className={styles.pillDotKind[kind]} aria-hidden="true" />
+      {label}
+    </span>
+  );
+}
+
+function pillKindFor(status: ValidationResult["status"]): PillKind {
+  switch (status) {
+    case "pass":
+      return "pass";
+    case "fail":
+      return "fail";
+    case "suspect_duplicate":
+      return "warn";
+    case "not_collected":
+      return "missing";
+  }
+}
+
+function labelFor(status: ValidationResult["status"]): string {
+  switch (status) {
+    case "pass":
+      return "Pass";
+    case "fail":
+      return "Fail";
+    case "suspect_duplicate":
+      return "Warn";
+    case "not_collected":
+      return "Missing";
+  }
+}
+
+function ChevronRight() {
+  return (
+    <svg
+      width="11"
+      height="11"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M6 3l5 5-5 5" />
+    </svg>
   );
 }

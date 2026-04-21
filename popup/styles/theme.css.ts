@@ -21,12 +21,14 @@ export const vars = createGlobalTheme(":root", {
     border: "oklch(91% 0.006 240)",
     borderStrong: "oklch(85% 0.008 240)",
     divider: "oklch(94% 0.005 240)",
-    text: "#1f2933",
-    textMuted: "#6b7280",
-    textSubtle: "#9ba3af",
-    primary: "#2563eb",
-    primaryHover: "#1d4ed8",
-    primarySoft: "#eff4ff",
+    // text 3종 / primary 2종은 디자인 원본(tokens.jsx)과 같은 oklch로 정렬한다.
+    // hex로 남겨두면 색상 툴이 뽑은 warmth/채도가 Display-P3에서 조금씩 어긋난다.
+    text: "oklch(22% 0.01 240)",
+    textMuted: "oklch(50% 0.012 240)",
+    textSubtle: "oklch(65% 0.01 240)",
+    primary: "oklch(56% 0.16 255)",
+    primaryHover: "oklch(50% 0.16 255)",
+    primarySoft: "oklch(96% 0.03 255)",
     primaryText: "#ffffff",
     // primary보다 가라앉은 톤. 섹션 헤더의 보조 액션 링크("전체 추가" 등)에
     // 쓴다. primary를 그대로 쓰면 풋터 CTA와 위계가 섞이고 헤더 안에서 튄다.
@@ -77,8 +79,12 @@ export const vars = createGlobalTheme(":root", {
     },
   },
   radius: {
+    // xs(3) / card(8)는 리포트 필름스트립 thumb와 카드 컨테이너를 원본 토큰 그대로
+    // 맞추려고 신설했다. 기존 sm/md/lg는 팝업 UI가 소비 중이라 건드리지 않는다.
+    xs: "3px",
     sm: "4px",
     md: "6px",
+    card: "8px",
     lg: "10px",
   },
   shadow: {

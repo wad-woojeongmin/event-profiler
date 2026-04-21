@@ -1,9 +1,33 @@
+// 검증 결과 테이블. 디자인 원본 `ValidationTable`의 셀 여백·폰트를 그대로 옮김.
+
 import { globalStyle, style, styleVariants } from "@vanilla-extract/css";
 
 import { vars } from "../../popup/styles/theme.css.ts";
 
-export const tableWrap = style({
-  overflowX: "auto",
+export const wrap = style({
+  background: vars.color.surface,
+  border: `1px solid ${vars.color.border}`,
+  borderRadius: vars.radius.card,
+  overflow: "hidden",
+});
+
+export const headerBar = style({
+  padding: "12px 16px",
+  borderBottom: `1px solid ${vars.color.divider}`,
+  display: "flex",
+  alignItems: "center",
+  gap: "8px",
+});
+
+export const headerTitle = style({
+  fontSize: vars.font.size.sm,
+  fontWeight: vars.font.weight.bold,
+  color: vars.color.text,
+});
+
+export const headerCount = style({
+  fontSize: vars.font.size.xs,
+  color: vars.color.textMuted,
 });
 
 export const table = style({
@@ -12,227 +36,159 @@ export const table = style({
   fontSize: vars.font.size.sm,
 });
 
-// 자식(th/td) 공통 스타일은 vanilla-extract의 단일 클래스 제약 때문에 globalStyle로 분리.
-globalStyle(`${table} th, ${table} td`, {
-  padding: `${vars.space.sm} ${vars.space.md}`,
-  textAlign: "left",
-  verticalAlign: "top",
-  borderBottom: `1px solid ${vars.color.border}`,
+globalStyle(`${table} thead tr`, {
+  background: vars.color.surfaceAlt,
 });
 
 globalStyle(`${table} th`, {
-  background: vars.color.surface,
+  padding: "9px 16px",
+  textAlign: "left",
+  fontSize: "10.5px",
+  fontWeight: vars.font.weight.bold,
   color: vars.color.textMuted,
-  fontSize: vars.font.size.xs,
+  letterSpacing: "0.3px",
   textTransform: "uppercase",
-  letterSpacing: "0.04em",
-  fontWeight: vars.font.weight.medium,
+  borderBottom: `1px solid ${vars.color.divider}`,
 });
 
-export const thStatus = style({ width: "110px" });
-export const thCount = style({ width: "80px" });
+globalStyle(`${table} td`, {
+  padding: "10px 16px",
+  borderTop: `1px solid ${vars.color.divider}`,
+  verticalAlign: "middle",
+});
 
-export const row = style({});
+// 첫 바디 행은 헤더와 경계가 이미 있어 중복 라인 방지.
+globalStyle(`${table} tbody tr:first-child td`, {
+  borderTop: "none",
+});
 
-export const rowInteractive = style({
+export const thStatus = style({ width: "80px" });
+export const thPage = style({ width: "100px" });
+export const thRight = style({
+  width: "70px",
+  textAlign: "right",
+});
+export const thChevron = style({ width: "30px" });
+
+export const row = style({
   cursor: "pointer",
   selectors: {
-    "&:hover": { background: vars.color.surface },
+    "&:hover": { background: vars.color.hover },
+    "&:focus-visible": {
+      outline: `2px solid ${vars.color.primary}`,
+      outlineOffset: "-2px",
+    },
   },
+});
+
+export const rowSelected = style({
+  background: vars.color.primarySoft,
+  selectors: {
+    "&:hover": { background: vars.color.primarySoft },
+  },
+});
+
+export const eventCell = style({
+  display: "flex",
+  flexDirection: "column",
+  gap: "1px",
 });
 
 export const eventName = style({
   fontFamily: vars.font.mono,
   fontSize: vars.font.size.sm,
+  fontWeight: vars.font.weight.bold,
   color: vars.color.text,
-  wordBreak: "break-all",
+  letterSpacing: "-0.1px",
 });
 
-export const eventMeta = style({
+export const eventFull = style({
+  fontSize: "10.5px",
+  color: vars.color.textSubtle,
+  fontFamily: vars.font.mono,
+});
+
+export const pageCell = style({
   fontSize: vars.font.size.xs,
   color: vars.color.textMuted,
-  marginTop: vars.space.xs,
+  fontFamily: vars.font.mono,
 });
 
-export const capturedCount = style({
+export const numberCell = style({
+  textAlign: "right",
+  fontVariantNumeric: "tabular-nums",
+  fontWeight: vars.font.weight.bold,
   color: vars.color.text,
+});
+
+export const issueHit = style({
+  fontSize: vars.font.size.xs,
+  fontWeight: vars.font.weight.bold,
+  color: vars.color.failText,
   fontVariantNumeric: "tabular-nums",
 });
 
-export const capturedUnit = style({
-  color: vars.color.textMuted,
-  marginLeft: vars.space.xs,
-  fontSize: vars.font.size.xs,
-});
-
 export const issueEmpty = style({
-  color: vars.color.textMuted,
-});
-
-export const issueSummary = style({
-  color: vars.color.danger,
-  fontWeight: vars.font.weight.medium,
-});
-
-const baseBadge = style({
-  display: "inline-block",
-  padding: `${vars.space.xs} ${vars.space.sm}`,
-  borderRadius: vars.radius.sm,
   fontSize: vars.font.size.xs,
-  fontWeight: vars.font.weight.medium,
-  border: "1px solid transparent",
+  color: vars.color.textSubtle,
 });
 
-export const badge = styleVariants({
+export const chevronCell = style({
+  width: "30px",
+  color: vars.color.textSubtle,
+  padding: "10px 10px",
+  textAlign: "right",
+});
+
+const pillBase = style({
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "5px",
+  height: "16px",
+  padding: "0 6px 0 5px",
+  borderRadius: "999px",
+  fontSize: "10.5px",
+  fontWeight: vars.font.weight.bold,
+  letterSpacing: "0.1px",
+  fontVariantNumeric: "tabular-nums",
+  whiteSpace: "nowrap",
+});
+
+export const pill = styleVariants({
   pass: [
-    baseBadge,
-    { background: "#ecfdf5", color: vars.color.success, borderColor: "#a7f3d0" },
+    pillBase,
+    { background: vars.color.passSoft, color: vars.color.passText },
   ],
   fail: [
-    baseBadge,
-    { background: "#fef2f2", color: vars.color.danger, borderColor: "#fecaca" },
+    pillBase,
+    { background: vars.color.failSoft, color: vars.color.failText },
   ],
-  not_collected: [
-    baseBadge,
-    { background: vars.color.surface, color: vars.color.textMuted, borderColor: vars.color.border },
+  warn: [
+    pillBase,
+    { background: vars.color.warnSoft, color: vars.color.warnText },
   ],
-  suspect_duplicate: [
-    baseBadge,
-    { background: "#fff7ed", color: vars.color.warning, borderColor: "#fed7aa" },
+  missing: [
+    pillBase,
+    { background: vars.color.missingSoft, color: vars.color.missingText },
   ],
 });
 
-export const detailRow = style({
-  background: vars.color.surface,
+export const pillDot = style({
+  width: "5px",
+  height: "5px",
+  borderRadius: "999px",
+  flexShrink: 0,
 });
 
-export const details = style({
-  display: "flex",
-  flexDirection: "column",
-  gap: vars.space.md,
-  padding: vars.space.md,
-});
-
-export const detailsBlock = style({
-  display: "flex",
-  flexDirection: "column",
-  gap: vars.space.sm,
-});
-
-export const detailsLabel = style({
-  fontSize: vars.font.size.xs,
-  fontWeight: vars.font.weight.bold,
-  textTransform: "uppercase",
-  letterSpacing: "0.04em",
-  color: vars.color.textMuted,
-});
-
-export const issueList = style({
-  listStyle: "none",
-  margin: 0,
-  padding: 0,
-  display: "flex",
-  flexDirection: "column",
-  gap: vars.space.xs,
-});
-
-export const issueItem = style({
-  display: "flex",
-  alignItems: "baseline",
-  gap: vars.space.sm,
-  fontSize: vars.font.size.sm,
-  color: vars.color.text,
-});
-
-const severityBase = style({
-  fontSize: "10px",
-  fontWeight: vars.font.weight.bold,
-  textTransform: "uppercase",
-  letterSpacing: "0.06em",
-  padding: `${vars.space.xs} ${vars.space.xs}`,
-  borderRadius: vars.radius.sm,
-});
-
-export const severity = styleVariants({
-  error: [severityBase, { background: "#fef2f2", color: vars.color.danger }],
-  warning: [severityBase, { background: "#fff7ed", color: vars.color.warning }],
-  info: [severityBase, { background: "#eff6ff", color: vars.color.primary }],
-});
-
-export const paramKey = style({
-  fontFamily: vars.font.mono,
-  fontSize: vars.font.size.xs,
-  background: vars.color.bg,
-  padding: `1px ${vars.space.xs}`,
-  borderRadius: vars.radius.sm,
-  border: `1px solid ${vars.color.border}`,
-});
-
-export const capturedList = style({
-  listStyle: "none",
-  margin: 0,
-  padding: 0,
-  display: "flex",
-  flexDirection: "column",
-  gap: vars.space.md,
-});
-
-export const capturedItem = style({
-  display: "flex",
-  flexDirection: "column",
-  gap: vars.space.sm,
-  padding: vars.space.md,
-  background: vars.color.bg,
-  border: `1px solid ${vars.color.border}`,
-  borderRadius: vars.radius.md,
-});
-
-export const capturedMeta = style({
-  display: "flex",
-  flexWrap: "wrap",
-  gap: vars.space.sm,
-  fontSize: vars.font.size.xs,
-  color: vars.color.textMuted,
-});
-
-export const capturedTime = style({
-  fontFamily: vars.font.mono,
-  color: vars.color.text,
-});
-
-export const capturedUrl = style({
-  wordBreak: "break-all",
-});
-
-export const params = style({
-  margin: 0,
-  padding: vars.space.sm,
-  background: vars.color.surface,
-  border: `1px solid ${vars.color.border}`,
-  borderRadius: vars.radius.sm,
-  fontFamily: vars.font.mono,
-  fontSize: vars.font.size.xs,
-  lineHeight: 1.45,
-  color: vars.color.text,
-  overflowX: "auto",
-});
-
-export const thumbLink = style({
-  display: "inline-block",
-  maxWidth: "320px",
-  borderRadius: vars.radius.sm,
-  overflow: "hidden",
-  border: `1px solid ${vars.color.border}`,
-});
-
-export const thumb = style({
-  display: "block",
-  width: "100%",
-  height: "auto",
+export const pillDotKind = styleVariants({
+  pass: [pillDot, { background: vars.color.passSolid }],
+  fail: [pillDot, { background: vars.color.failSolid }],
+  warn: [pillDot, { background: vars.color.warnSolid }],
+  missing: [pillDot, { background: vars.color.missingSolid }],
 });
 
 export const empty = style({
-  padding: vars.space.lg,
+  padding: "24px 16px",
   textAlign: "center",
   color: vars.color.textMuted,
   fontSize: vars.font.size.sm,

@@ -1,13 +1,20 @@
 // 로드된 리포트의 전체 레이아웃. 순수 props 소비만 하므로 테스트에서 임의의
 // `ReportData`를 주입해 시각 회귀를 확인할 수 있다.
+//
+// 디자인 원본(design-bundle/components/report-variations.jsx `ReportPage`)의
+// 섹션 순서를 그대로 따른다:
+//   Header · BigStats · Timeline(필름스트립 정렬) · [결과표 | 상세] · 예외 리스트.
+
+import { useMemo, useState } from "react";
 
 import type { ReportData } from "@/types/storage.ts";
 
+import { EventDetail } from "./event-detail.tsx";
+import { ExceptionList } from "./exception-list.tsx";
 import { Header } from "./header.tsx";
 import { ResultsTable } from "./results-table.tsx";
 import { StatsDashboard } from "./stats-dashboard.tsx";
 import { TimelineChart } from "./timeline-chart.tsx";
-import { UnexpectedList } from "./unexpected-list.tsx";
 import * as styles from "./report-view.css.ts";
 
 interface Props {
@@ -16,36 +23,62 @@ interface Props {
 
 export function ReportView({ data }: Props) {
   const { report, screenshotDataUrls } = data;
-  // 결과에 묶인 captured 이벤트를 모두 합쳐 타임라인에 표시.
-  const capturedAll = report.results.flatMap((r) => r.captured);
+
+  // 타임라인이 한 곳에서 captured 전체를 훑으므로 상위에서 한 번만 flatten한다.
+  const capturedAll = useMemo(
+    () => report.results.flatMap((r) => r.captured),
+    [report.results],
+  );
+
+  // 초기 선택 규칙: 이슈가 가장 많은 결과 → 없으면 captured가 있는 첫 행 → 없으면 0.
+  // 디자인 원본은 `idx=4`를 하드코딩했지만 실데이터는 길이가 다르므로 의미 기반 선택.
+  const initialIdx = useMemo(() => pickInitialIdx(report.results), [report.results]);
+  const [selectedIdx, setSelectedIdx] = useState(initialIdx);
+  const selected =
+    report.results[selectedIdx] ?? report.results[0];
 
   return (
     <main className={styles.page}>
       <div className={styles.container}>
-        <Header report={report} />
-        <StatsDashboard stats={report.stats} />
-        <section className={styles.section}>
-          <h2 className={styles.sectionTitle}>타임라인</h2>
+        <Header report={report} captured={capturedAll} />
+        <div className={styles.body}>
+          <StatsDashboard stats={report.stats} />
           <TimelineChart session={report.session} captured={capturedAll} />
-        </section>
-        <section className={styles.section}>
-          <h2 className={styles.sectionTitle}>
-            검증 결과 ({report.results.length})
-          </h2>
-          <ResultsTable
-            results={report.results}
-            screenshotDataUrls={screenshotDataUrls}
-          />
-        </section>
-        {report.unexpected.length > 0 && (
-          <section className={styles.section}>
-            <h2 className={styles.sectionTitle}>
-              예외 이벤트 ({report.unexpected.length})
-            </h2>
-            <UnexpectedList events={report.unexpected} />
-          </section>
-        )}
+          {selected && (
+            <div className={styles.twoColumn}>
+              <ResultsTable
+                results={report.results}
+                selectedIdx={selectedIdx}
+                onSelect={setSelectedIdx}
+              />
+              <EventDetail
+                result={selected}
+                screenshotDataUrls={screenshotDataUrls}
+              />
+            </div>
+          )}
+          {report.unexpected.length > 0 && (
+            <ExceptionList events={report.unexpected} />
+          )}
+        </div>
       </div>
     </main>
   );
+}
+
+function pickInitialIdx(
+  results: ReportData["report"]["results"],
+): number {
+  let bestIdx = 0;
+  let bestScore = -1;
+  for (let i = 0; i < results.length; i++) {
+    const r = results[i];
+    if (!r) continue;
+    const score = r.issues.length * 10 + (r.captured.length > 0 ? 1 : 0);
+    if (score > bestScore) {
+      bestScore = score;
+      bestIdx = i;
+    }
+  }
+  return bestIdx;
 }
