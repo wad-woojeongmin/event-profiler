@@ -95,6 +95,8 @@ describe("formatReportAsText", () => {
             amplitudeEventName: "shop_click",
             pageName: "shop",
             params: ["shopId", "source"],
+            sourceRow: 47,
+            sourceSheet: "메인",
           }),
           captured: [
             makeEvent({
@@ -122,6 +124,64 @@ describe("formatReportAsText", () => {
     expect(text).toContain("스펙 params: shopId, source");
     expect(text).toContain("수집 로그:");
     expect(text).toContain('shopId=48291 source="gnb"');
+    // 시트 역추적 힌트도 헤더에 붙는다.
+    expect(text).toContain('시트 "메인" 행 47');
+  });
+
+  it("시트명이 없으면 행 번호만 붙인다", () => {
+    const data = makeReportData({
+      results: [
+        {
+          spec: makeSpec({
+            amplitudeEventName: "no_sheet",
+            sourceRow: 12,
+            sourceSheet: undefined,
+          }),
+          captured: [],
+          issues: [],
+          status: "pass",
+        },
+      ],
+    });
+    const text = formatReportAsText(data);
+    expect(text).toContain("시트 행 12");
+    expect(text).not.toContain('"undefined"');
+  });
+
+  it("수집 로그에서 base property 키를 감춘다", () => {
+    const data = makeReportData({
+      results: [
+        {
+          spec: makeSpec({
+            amplitudeEventName: "shop_impr",
+            params: ["shopName"],
+          }),
+          captured: [
+            makeEvent({
+              id: "e1",
+              params: {
+                shopName: "뇨끼",
+                buildVersion: "20260421",
+                deviceId: "dev-xyz",
+                deviceType: "Web-PC",
+                isNativeApp: false,
+                eventTimeStamp: 1776772753527500,
+              },
+            }),
+          ],
+          issues: [],
+          status: "pass",
+        },
+      ],
+    });
+    const text = formatReportAsText(data);
+    // shopName은 나오고, base property 키/값은 안 나온다.
+    expect(text).toContain('shopName="뇨끼"');
+    expect(text).not.toContain("buildVersion");
+    expect(text).not.toContain("deviceId");
+    expect(text).not.toContain("deviceType");
+    expect(text).not.toContain("isNativeApp");
+    expect(text).not.toContain("eventTimeStamp");
   });
 
   it("unexpected는 출력하지 않는다", () => {
