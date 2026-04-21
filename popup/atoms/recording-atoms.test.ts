@@ -151,4 +151,19 @@ describe("hydrateSessionAtom", () => {
     client.emit(activeSession);
     expect(store.get(recordingSessionAtom)).toEqual(endedSession);
   });
+
+  it("활성 세션을 hydrate하면 선택 상태가 세션의 targetEventNames로 복원된다", async () => {
+    // 팝업이 닫혔다 다시 열리는 상황: 메모리 전용인 selection은 비어 있지만
+    // 녹화 중인 세션이 있다면 SW 스냅샷의 targetEventNames로 되살린다.
+    client.setSessionState(activeSession);
+    expect(store.get(selectedEventNamesAtom).size).toBe(0);
+    await store.set(hydrateSessionAtom);
+    expect([...store.get(selectedEventNamesAtom)]).toEqual(["a", "b"]);
+  });
+
+  it("세션이 없을 때는 선택 상태를 건드리지 않는다", async () => {
+    store.set(setSelectionAtom, ["kept"]);
+    await store.set(hydrateSessionAtom);
+    expect([...store.get(selectedEventNamesAtom)]).toEqual(["kept"]);
+  });
 });

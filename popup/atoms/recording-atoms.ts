@@ -96,11 +96,18 @@ export const generateReportAtom = atom(null, async (get) => {
 /**
  * 배경 SW push가 없는 환경에서 구독 진입 및 최초 hydrate를 겸한다.
  * 반환값은 해제 함수로, 팝업 unmount 시 호출한다.
+ *
+ * 선택 상태(`selectedEventNamesAtom`)는 메모리 전용이라 팝업이 닫히면 소실된다.
+ * 활성/종료 세션이 존재하면 세션의 `targetEventNames`에서 복원하여 팝업을
+ * 재오픈해도 "녹화 중 어떤 로그를 대상으로 삼았는지"가 UI에 그대로 보이도록 한다.
  */
 export const hydrateSessionAtom = atom(null, async (get, set) => {
   const client = requireBackgroundClient(get(backgroundClientAtom));
   const snapshot = await client.getSessionState();
   set(recordingSessionAtom, snapshot);
+  if (snapshot.session) {
+    set(selectedEventNamesAtom, new Set(snapshot.targetEventNames));
+  }
   return client.subscribeSession((state) => {
     set(recordingSessionAtom, state);
   });
