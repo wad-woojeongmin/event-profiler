@@ -6,6 +6,7 @@
 
 import { atom } from "jotai";
 
+import { canonicalEventName } from "@/shared/canonical-event-name.ts";
 import type { ValidationReport, ValidationResult } from "@/types/validation.ts";
 
 import { backgroundClientAtom, requireBackgroundClient } from "./client-atom.ts";
@@ -63,3 +64,64 @@ export const liveResultsByNameAtom = atom<Map<string, ValidationResult>>(
     return map;
   },
 );
+
+export type LiveStreamStatus = "pass" | "warn" | "fail" | "exception";
+
+export interface LiveStreamEntry {
+  id: string;
+  timestamp: number;
+  eventName: string;
+  params: Record<string, unknown>;
+  status: LiveStreamStatus;
+}
+
+/**
+ * 녹화 중 화면의 "실시간 스트림" 리스트에 노출되는 이벤트. 선택된 스펙에 매칭되어
+ * 검증된 이벤트와 예외 이벤트를 하나의 시간축에 모아 최신순으로 정렬한다. 스냅샷
+ * 폴링(500ms)이 리스트 소스이므로 DOM animation은 첫 행에만 얕게 걸어 시각적
+ * 갱신감을 낸다(UI 측에서 처리).
+ */
+export const liveStreamAtom = atom<LiveStreamEntry[]>((get) => {
+  const report = get(liveReportAtom);
+  if (!report) return [];
+  const entries: LiveStreamEntry[] = [];
+  for (const r of report.results) {
+    const status = mapResultStatus(r.status);
+    for (const captured of r.captured) {
+      entries.push({
+        id: captured.id,
+        timestamp: captured.timestamp,
+        eventName: canonicalEventName(captured),
+        params: captured.params,
+        status,
+      });
+    }
+  }
+  for (const captured of report.unexpected) {
+    entries.push({
+      id: captured.id,
+      timestamp: captured.timestamp,
+      eventName: canonicalEventName(captured),
+      params: captured.params,
+      status: "exception",
+    });
+  }
+  entries.sort((a, b) => b.timestamp - a.timestamp);
+  return entries.slice(0, 50);
+});
+
+function mapResultStatus(
+  status: ValidationResult["status"],
+): LiveStreamStatus {
+  switch (status) {
+    case "pass":
+      return "pass";
+    case "fail":
+      return "fail";
+    case "suspect_duplicate":
+      return "warn";
+    default:
+      // not_collected는 captured가 없어 스트림에 도달하지 않는다.
+      return "pass";
+  }
+}

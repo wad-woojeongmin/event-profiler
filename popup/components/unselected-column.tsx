@@ -1,8 +1,8 @@
-// 미선택 칼럼.
+// 미선택(스펙 풀) 칼럼.
 //
-// 좌측: 체크박스로 아직 선택되지 않은 스펙을 노출. 체크 또는 행 클릭 시
-// `toggleSelection`으로 우측 칼럼으로 이동한다. (실제 이동은 파생 atom이 다시
-// 계산되며 자동으로 일어난다.)
+// 우측: 체크박스로 아직 선택되지 않은 스펙을 노출. 체크 또는 행 클릭 시
+// `toggleSelection`으로 좌측 선택 칼럼으로 이동한다. 칼럼 헤더의 "전체 추가"는
+// 현재 필터 조건에 걸린 스펙만 일괄 선택한다.
 
 import { useAtomValue, useSetAtom } from "jotai";
 
@@ -10,7 +10,11 @@ import {
   unselectedFilteredSpecsAtom,
   unselectedQueryAtom,
 } from "../atoms/filter-atoms.ts";
-import { toggleSelectionAtom } from "../atoms/recording-atoms.ts";
+import {
+  selectedEventNamesAtom,
+  setSelectionAtom,
+  toggleSelectionAtom,
+} from "../atoms/recording-atoms.ts";
 import { specsAtom } from "../atoms/specs-atoms.ts";
 
 import * as styles from "./spec-selector.css.ts";
@@ -18,20 +22,41 @@ import * as styles from "./spec-selector.css.ts";
 export function UnselectedColumn() {
   const filtered = useAtomValue(unselectedFilteredSpecsAtom);
   const allSpecs = useAtomValue(specsAtom);
+  const selected = useAtomValue(selectedEventNamesAtom);
   const query = useAtomValue(unselectedQueryAtom);
   const setQuery = useSetAtom(unselectedQueryAtom);
   const toggle = useSetAtom(toggleSelectionAtom);
+  const setSelection = useSetAtom(setSelectionAtom);
+
+  const addAllVisible = (): void => {
+    const next = new Set(selected);
+    for (const spec of filtered) {
+      next.add(spec.amplitudeEventName);
+    }
+    setSelection(next);
+  };
 
   return (
     <div className={styles.column}>
       <div className={styles.columnHeader}>
-        <span className={styles.columnTitle}>미선택 이벤트 정의</span>
-        <span className={styles.columnCount}>{filtered.length}개</span>
+        <span className={styles.columnTitle}>스펙 풀</span>
+        <span className={styles.columnCount}>
+          {filtered.length.toLocaleString()}
+        </span>
+        <div className={styles.columnSpacer} />
+        <button
+          type="button"
+          className={styles.columnActionPrimary}
+          onClick={addAllVisible}
+          disabled={filtered.length === 0}
+        >
+          전체 추가
+        </button>
       </div>
       <input
         className={styles.searchInput}
         type="search"
-        placeholder="이벤트명 · 페이지명"
+        placeholder="이벤트명 · 페이지"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         disabled={allSpecs.length === 0}
@@ -52,21 +77,12 @@ export function UnselectedColumn() {
               className={styles.item}
               onClick={() => toggle(spec.amplitudeEventName)}
             >
-              <input
-                type="checkbox"
-                checked={false}
-                readOnly
-                aria-label={spec.amplitudeEventName}
-                onClick={(e) => e.stopPropagation()}
-                onChange={() => toggle(spec.amplitudeEventName)}
-              />
+              <span className={styles.checkboxEmpty} aria-hidden="true" />
               <div className={styles.itemMain}>
                 <span className={styles.itemTitle}>
                   {spec.humanEventName || spec.amplitudeEventName}
                 </span>
-                <span className={styles.itemSubtitle}>
-                  {spec.pageName} · {spec.amplitudeEventName}
-                </span>
+                <span className={styles.itemSubtitle}>{spec.pageName}</span>
               </div>
             </li>
           ))}
