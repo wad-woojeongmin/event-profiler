@@ -31,3 +31,9 @@ globalStyle("button", {
   fontFamily: "inherit",
   fontSize: "inherit",
 });
+
+globalStyle("ul, ol", {
+  margin: 0,
+  padding: 0,
+  listStyle: "none",
+});
