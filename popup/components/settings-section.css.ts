@@ -41,7 +41,7 @@ export const sheetCard = style({
   flexDirection: "column",
   gap: "2px",
   padding: `${vars.space.md} ${vars.space.md}`,
-  background: vars.color.bg,
+  background: vars.color.surface,
   border: `1px solid ${vars.color.border}`,
   borderRadius: vars.radius.md,
   boxShadow: vars.shadow.sm,
@@ -131,7 +131,7 @@ export const footer = style({
   flexShrink: 0,
   padding: vars.space.md,
   borderTop: `1px solid ${vars.color.border}`,
-  background: vars.color.bg,
+  background: vars.color.surface,
 });
 
 export const footerButton = style({

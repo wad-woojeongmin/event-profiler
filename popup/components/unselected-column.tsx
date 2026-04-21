@@ -1,4 +1,4 @@
-// 미선택(스펙 풀) 칼럼.
+// 미선택 칼럼.
 //
 // 좌측: 체크박스로 아직 선택되지 않은 스펙을 노출. 체크 또는 행 클릭 시
 // `toggleSelection`으로 우측 선택 칼럼으로 이동한다. 칼럼 헤더의 "전체 추가"는
@@ -39,7 +39,7 @@ export function UnselectedColumn() {
   return (
     <div className={styles.column}>
       <div className={styles.columnHeader}>
-        <span className={styles.columnTitle}>스펙 풀</span>
+        <span className={styles.columnTitle}>미선택</span>
         <span className={styles.columnCount}>
           {filtered.length.toLocaleString()}
         </span>
