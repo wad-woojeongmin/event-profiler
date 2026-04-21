@@ -111,7 +111,7 @@ function EventName({ name }: { name: string }) {
     <span className={styles.eventName}>
       {parts.map((p, i) =>
         p === "__" ? (
-          <span key={i} style={{ color: "oklch(65% 0.01 240)" }}>
+          <span key={i} className={styles.eventNameSeparator}>
             {p}
           </span>
         ) : (

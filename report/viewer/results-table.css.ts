@@ -102,6 +102,11 @@ export const eventName = style({
   letterSpacing: "-0.1px",
 });
 
+// `__` 구분자를 옅게 표기. 다크 테마 확장 대비해 인라인 oklch 대신 토큰을 쓴다.
+export const eventNameSeparator = style({
+  color: vars.color.textSubtle,
+});
+
 export const eventFull = style({
   fontSize: "10.5px",
   color: vars.color.textSubtle,
