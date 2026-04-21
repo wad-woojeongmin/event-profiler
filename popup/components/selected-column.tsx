@@ -1,7 +1,7 @@
 // 선택 칼럼.
 //
-// 우측: 사용자가 고른 스펙만 표시. 행 클릭(또는 × 버튼)은 `toggleSelection`으로
-// 선택 해제 → 좌측 스펙 풀로 돌려보낸다. 칼럼 헤더에 "해제" 액션을 두어 전체
+// 우측: 사용자가 고른 스펙만 표시. 행 클릭 또는 Space/Enter 키로 선택을 풀어
+// 좌측 미선택 칼럼으로 돌려보낸다. 칼럼 헤더에 "해제" 액션을 두어 전체
 // 선택을 한 번에 비울 수 있다.
 
 import { useAtomValue, useSetAtom } from "jotai";
@@ -62,12 +62,21 @@ export function SelectedColumn() {
           </div>
         </div>
       ) : (
-        <ul className={styles.list}>
+        <ul className={styles.list} role="list">
           {filtered.map((spec) => (
             <li
               key={spec.amplitudeEventName + ":" + spec.sourceRow}
               className={styles.item}
+              role="checkbox"
+              aria-checked={true}
+              tabIndex={0}
               onClick={() => toggle(spec.amplitudeEventName)}
+              onKeyDown={(e) => {
+                if (e.key === " " || e.key === "Enter") {
+                  e.preventDefault();
+                  toggle(spec.amplitudeEventName);
+                }
+              }}
             >
               <span className={styles.checkboxChecked} aria-hidden="true">
                 <svg
