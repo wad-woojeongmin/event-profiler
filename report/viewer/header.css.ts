@@ -111,13 +111,3 @@ export const btnDefault = style([
   },
 ]);
 
-export const btnPrimary = style([
-  btnBase,
-  {
-    background: vars.color.primary,
-    color: vars.color.primaryText,
-    selectors: {
-      "&:hover": { background: vars.color.primaryHover },
-    },
-  },
-]);
