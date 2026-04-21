@@ -20,7 +20,6 @@ import {
   specsAtom,
 } from "./atoms/specs-atoms.ts";
 import { hydrateActiveTabAtom } from "./atoms/tab-atoms.ts";
-import { AppHeader } from "./components/app-header.tsx";
 import { RecordingControls } from "./components/recording-controls.tsx";
 import { RecordingDashboard } from "./components/recording-dashboard.tsx";
 import { SettingsSection } from "./components/settings-section.tsx";
@@ -42,7 +41,6 @@ export function PopupApp({ client }: PopupAppProps) {
       <AuthBridge />
       <SpecsBridge />
       <LiveReportBridge />
-      <AppHeader />
       <PhaseLayout />
     </Provider>
   );

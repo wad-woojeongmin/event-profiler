@@ -1,7 +1,7 @@
 // 미선택(스펙 풀) 칼럼.
 //
-// 우측: 체크박스로 아직 선택되지 않은 스펙을 노출. 체크 또는 행 클릭 시
-// `toggleSelection`으로 좌측 선택 칼럼으로 이동한다. 칼럼 헤더의 "전체 추가"는
+// 좌측: 체크박스로 아직 선택되지 않은 스펙을 노출. 체크 또는 행 클릭 시
+// `toggleSelection`으로 우측 선택 칼럼으로 이동한다. 칼럼 헤더의 "전체 추가"는
 // 현재 필터 조건에 걸린 스펙만 일괄 선택한다.
 
 import { useAtomValue, useSetAtom } from "jotai";
@@ -84,7 +84,9 @@ export function UnselectedColumn() {
                 <span className={styles.itemTitle}>
                   {spec.humanEventName || spec.amplitudeEventName}
                 </span>
-                <span className={styles.itemSubtitle}>{spec.pageName}</span>
+                <span className={styles.itemSubtitle}>
+                  {spec.pageName} · {spec.amplitudeEventName}
+                </span>
               </div>
             </li>
           ))}
