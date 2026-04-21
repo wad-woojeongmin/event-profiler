@@ -31,6 +31,15 @@ const BADGE_REC_COLOR = "#c0392b";
 const BADGE_DONE_COLOR = "#27ae60";
 
 export default defineBackground(() => {
+  // action 아이콘 클릭 시 side panel이 열리도록 한다. Chrome 전용 API라
+  // 존재 여부를 런타임에 확인한 뒤 호출한다.
+  const sidePanel = (browser as unknown as { sidePanel?: { setPanelBehavior: (opts: { openPanelOnActionClick: boolean }) => Promise<void> } }).sidePanel;
+  if (sidePanel) {
+    void sidePanel
+      .setPanelBehavior({ openPanelOnActionClick: true })
+      .catch(() => {});
+  }
+
   const sessionStore = createWxtSessionStore();
   const settingsStore = createWxtSettingsStore();
   const eventStore = createIdbEventStore();

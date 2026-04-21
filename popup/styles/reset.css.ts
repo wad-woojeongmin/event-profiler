@@ -1,6 +1,7 @@
-// 팝업 전역 리셋 + 기본 타이포그래피.
+// 사이드 패널 전역 리셋 + 기본 타이포그래피.
 //
-// 팝업은 고정 폭이므로 글로벌 스타일만으로 레이아웃이 충분히 안정적이다.
+// 사이드 패널은 브라우저가 제공하는 가변 폭을 따르므로 `html/body/#root`는
+// 100%로 늘려 어떤 폭에서도 꽉 차게 한다.
 
 import { globalStyle } from "@vanilla-extract/css";
 
@@ -13,6 +14,8 @@ globalStyle("*, *::before, *::after", {
 globalStyle("html, body", {
   margin: 0,
   padding: 0,
+  width: "100%",
+  minHeight: "100vh",
   background: vars.color.bg,
   color: vars.color.text,
   fontFamily: vars.font.body,
@@ -21,8 +24,8 @@ globalStyle("html, body", {
 });
 
 globalStyle("#root", {
-  width: "360px",
-  minHeight: "480px",
+  width: "100%",
+  minHeight: "100vh",
   display: "flex",
   flexDirection: "column",
 });

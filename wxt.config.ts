@@ -24,7 +24,18 @@ export default defineConfig({
       version: "0.1.0",
       description:
         "Catch Table 이벤트 스펙과 실제 수집 로그를 비교해 누락·오수집을 검출합니다.",
-      permissions: ["activeTab", "tabs", "storage", "identity", "scripting"],
+      permissions: [
+        "activeTab",
+        "tabs",
+        "storage",
+        "identity",
+        "scripting",
+        "sidePanel",
+      ],
+      // popup 엔트리포인트를 제거했기 때문에 WXT가 action 키를 생성하지 않는다.
+      // 툴바 아이콘 + 배지(`browser.action.setBadgeText`)를 쓰려면 빈 action이
+      // 필요하고, 클릭 시 side panel이 열리도록 background에서 behavior를 세팅한다.
+      action: {},
       host_permissions: ["https://*.catchtable.co.kr/*"],
       ...(EXTENSION_PUBLIC_KEY ? { key: EXTENSION_PUBLIC_KEY } : {}),
       ...(OAUTH_CLIENT_ID
