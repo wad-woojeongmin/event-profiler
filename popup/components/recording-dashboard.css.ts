@@ -5,6 +5,10 @@
 //
 // REC 헤더 펄스 애니메이션은 녹화 진행 중임을 시각적으로 전달한다. 녹화 종료
 // 상태에서는 펄스를 멈추고 색도 회색으로 가라앉힌다.
+//
+// 실시간 스트림은 첫 행에만 slide-in + blue-soft 배경을 얇게 걸어 새 이벤트가
+// 도착했음을 드러낸다. 매 폴링마다 fresh 플래그가 바뀌므로 CSS transition이
+// 자연스럽게 감쇠된다.
 
 import { keyframes, style, styleVariants } from "@vanilla-extract/css";
 
@@ -15,9 +19,11 @@ const pulse = keyframes({
   "50%": { opacity: 0.35 },
 });
 
-// wrapper 자체는 스크롤하지 않는다 — 안쪽 specList/unexpectedBody가 각각
-// overflow를 갖고 필요한 만큼만 잡아먹는다. wrapper가 overflow:auto면 긴 목록이
-// 전체 대시보드를 밀어 footer가 뷰포트 밖으로 사라지는 원래 이슈가 돌아온다.
+const slideIn = keyframes({
+  from: { opacity: 0, transform: "translateY(6px)" },
+  to: { opacity: 1, transform: "none" },
+});
+
 export const wrapper = style({
   display: "flex",
   flexDirection: "column",
@@ -28,9 +34,6 @@ export const wrapper = style({
   overflow: "hidden",
 });
 
-// 대시보드 안의 고정 높이 섹션(헤더·메타·카드·검색·예외 테이블 등)이 공통으로
-// 참조. flex 컨텍스트에서 축소되지 않도록 flexShrink:0을 준다. 늘어나는 유일한
-// 섹션은 specList.
 const staticSection = style({
   flexShrink: 0,
 });
@@ -178,6 +181,10 @@ export const sectionCount = style({
   fontVariantNumeric: "tabular-nums",
 });
 
+export const sectionSpacer = style({
+  flex: 1,
+});
+
 export const sectionHeader = style([
   staticSection,
   {
@@ -187,15 +194,32 @@ export const sectionHeader = style([
   },
 ]);
 
+export const liveBadge = style({
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "5px",
+  fontSize: vars.font.size.xs,
+  color: vars.color.textMuted,
+  fontWeight: vars.font.weight.medium,
+});
+
+export const liveBadgeDot = style({
+  width: "5px",
+  height: "5px",
+  borderRadius: "50%",
+  background: vars.color.failSolid,
+  animation: `${pulse} 1.2s ease-in-out infinite`,
+});
+
 // 선택한 이벤트 정의 상태 리스트 — 대시보드에서 유일하게 flex로 늘어나는 섹션.
-// 남는 세로 공간을 채우되, 최대로 늘어났을 때만 내부 스크롤이 생긴다. 스펙이
-// 적어서 자연 높이가 더 작으면 그만큼만 차지하고 아래 예외 이벤트 섹션이 붙는다.
+// specList와 streamList가 각각 flex 영역을 나눠 가진다. 스펙이 적고 스트림이
+// 많으면 스트림이 더 많은 공간을 차지한다.
 export const specList = style({
   display: "flex",
   flexDirection: "column",
   border: `1px solid ${vars.color.border}`,
   borderRadius: vars.radius.md,
-  flex: "1 1 auto",
+  flex: "1 1 0",
   minHeight: 0,
   overflowY: "auto",
   background: vars.color.bg,
@@ -329,66 +353,116 @@ export const specCountUnit = style({
   color: vars.color.textSubtle,
 });
 
-export const unexpectedTable = style([
-  staticSection,
-  {
-    display: "flex",
-    flexDirection: "column",
-    gap: 0,
-    border: `1px solid ${vars.color.border}`,
-    borderRadius: vars.radius.md,
-    overflow: "hidden",
-    background: vars.color.bg,
-  },
-]);
-
-// 행이 많아져도 헤더는 고정, 본문만 스크롤. gap을 0으로 두고 borderBottom만으로
-// 구분해 position:sticky 행이 자연스럽게 맞물린다.
-export const unexpectedBody = style({
+// 실시간 스트림
+export const streamList = style({
   display: "flex",
   flexDirection: "column",
-  maxHeight: "220px",
+  border: `1px solid ${vars.color.border}`,
+  borderRadius: vars.radius.md,
+  flex: "1 1 0",
+  minHeight: 0,
   overflowY: "auto",
-});
-
-export const unexpectedHeader = style({
-  display: "grid",
-  gridTemplateColumns: "1.5fr 1fr auto",
-  gap: vars.space.sm,
-  padding: `${vars.space.xs} ${vars.space.sm}`,
-  background: vars.color.surface,
-  fontSize: "10px",
-  color: vars.color.textMuted,
-  fontWeight: vars.font.weight.bold,
-  letterSpacing: "0.04em",
-  textTransform: "uppercase",
-  borderBottom: `1px solid ${vars.color.border}`,
-});
-
-export const unexpectedRow = style({
-  display: "grid",
-  gridTemplateColumns: "1.5fr 1fr auto",
-  gap: vars.space.sm,
-  padding: `${vars.space.xs} ${vars.space.sm}`,
-  fontSize: vars.font.size.xs,
-  borderBottom: `1px solid ${vars.color.divider}`,
   background: vars.color.bg,
+});
+
+const streamRowBase = style({
+  display: "grid",
+  gridTemplateColumns: "auto 1fr",
+  alignItems: "flex-start",
+  gap: vars.space.sm,
+  padding: `${vars.space.xs} ${vars.space.md}`,
+  borderBottom: `1px solid ${vars.color.divider}`,
+  transition: "background 0.6s",
   selectors: {
     "&:last-child": { borderBottom: "none" },
   },
 });
 
-export const unexpectedCell = style({
-  whiteSpace: "nowrap",
-  overflow: "hidden",
-  textOverflow: "ellipsis",
+export const streamRow = style([streamRowBase, { background: "transparent" }]);
+
+export const streamRowFresh = style([
+  streamRowBase,
+  {
+    background: vars.color.primarySoft,
+    animation: `${slideIn} 0.25s ease-out`,
+  },
+]);
+
+const streamDotBase = style({
+  width: "6px",
+  height: "6px",
+  borderRadius: "50%",
+  flexShrink: 0,
+  marginTop: "7px",
+});
+
+export const streamDotPass = style([
+  streamDotBase,
+  { background: vars.color.passSolid },
+]);
+export const streamDotWarn = style([
+  streamDotBase,
+  { background: vars.color.warnSolid },
+]);
+export const streamDotFail = style([
+  streamDotBase,
+  { background: vars.color.failSolid },
+]);
+export const streamDotException = style([
+  streamDotBase,
+  { background: vars.color.textSubtle },
+]);
+
+export const streamMain = style({
+  display: "flex",
+  flexDirection: "column",
+  gap: "1px",
   minWidth: 0,
 });
 
-export const unexpectedCellMono = style([
-  unexpectedCell,
-  { fontFamily: vars.font.mono },
+export const streamHead = style({
+  display: "flex",
+  alignItems: "baseline",
+  gap: vars.space.sm,
+});
+
+export const streamTime = style({
+  fontFamily: vars.font.mono,
+  fontSize: "10.5px",
+  color: vars.color.textSubtle,
+  letterSpacing: "-0.2px",
+  fontVariantNumeric: "tabular-nums",
+});
+
+export const streamExceptionLabel = style({
+  fontSize: "10px",
+  color: vars.color.textSubtle,
+  fontStyle: "italic",
+});
+
+export const streamName = style({
+  fontFamily: vars.font.mono,
+  fontSize: "11.5px",
+  fontWeight: vars.font.weight.medium,
+  color: vars.color.text,
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+});
+
+export const streamNameException = style([
+  streamName,
+  { color: vars.color.textMuted },
 ]);
+
+export const streamParams = style({
+  fontFamily: vars.font.mono,
+  fontSize: "10.5px",
+  color: vars.color.textSubtle,
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+});
 
 export const emptyState = style([
   staticSection,
@@ -400,24 +474,5 @@ export const emptyState = style([
     background: vars.color.bg,
     border: `1px solid ${vars.color.border}`,
     borderRadius: vars.radius.md,
-  },
-]);
-
-export const searchInput = style([
-  staticSection,
-  {
-    width: "100%",
-    padding: `${vars.space.xs} ${vars.space.sm}`,
-    border: `1px solid ${vars.color.border}`,
-    borderRadius: vars.radius.sm,
-    fontSize: vars.font.size.sm,
-    background: vars.color.bg,
-    color: vars.color.text,
-    selectors: {
-      "&:focus": {
-        outline: "none",
-        borderColor: vars.color.primary,
-      },
-    },
   },
 ]);

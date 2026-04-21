@@ -2,24 +2,24 @@
 //
 // 상단: REC 헤더(펄싱 점 + 경과 시간 + 시작 시각)
 // 중단: 카운터 스트립(총 수집 / PASS / FAIL / 중복 / 미수집)
-// 하단: 선택 이벤트 상태 리스트 + 예외 이벤트 테이블
+// 하단: 선택 이벤트 상태 리스트 + 실시간 스트림(최신순)
 //
 // 배경 SW가 최종 리포트와 같은 소스로 계산한 `ValidationReport`를 라이브로 받아
-// 상태 카드·선택 스펙별 이슈 요약·예외 이벤트 목록을 보여준다. 리포트 뷰어
+// 상태 카드·선택 스펙별 이슈 요약·실시간 스트림을 보여준다. 리포트 뷰어
 // (`report/viewer/`)와 판정·색 토큰을 맞춘다.
 
 import { useAtomValue } from "jotai";
 import { useEffect, useMemo, useState } from "react";
 
-import { canonicalEventName } from "@/shared/canonical-event-name.ts";
-import type { CapturedEvent } from "@/types/event.ts";
 import type { ValidationIssue, ValidationResult } from "@/types/validation.ts";
 import { formatClock, statusLabel } from "@/report/viewer/format.ts";
 
 import {
-  liveReportAtom,
   liveResultsByNameAtom,
   liveStatsAtom,
+  liveStreamAtom,
+  type LiveStreamEntry,
+  type LiveStreamStatus,
 } from "../atoms/live-report-atoms.ts";
 import {
   recordingPhaseAtom,
@@ -42,30 +42,17 @@ export function RecordingDashboard() {
   const session = useAtomValue(recordingSessionAtom);
   const specs = useAtomValue(specsAtom);
   const selected = useAtomValue(selectedEventNamesAtom);
-  const report = useAtomValue(liveReportAtom);
   const stats = useAtomValue(liveStatsAtom);
   const resultsByName = useAtomValue(liveResultsByNameAtom);
+  const stream = useAtomValue(liveStreamAtom);
 
   // 선택된 스펙(녹화 시작 시점 기준)을 상태 우선순위로 정렬해 고정 렌더.
-  // report가 아직 없으면 "not_collected"로 가정해 자리를 잡고, 이후 스냅샷이 도착하면
-  // 상태·이슈가 자연스럽게 갱신된다.
+  // report가 아직 없으면 "not_collected"로 가정해 자리를 잡고, 이후 스냅샷이
+  // 도착하면 상태·이슈가 자연스럽게 갱신된다.
   const rows = useMemo(
     () => buildSpecRows(specs, selected, resultsByName),
     [specs, selected, resultsByName],
   );
-
-  const unexpectedGroups = useMemo(
-    () => groupUnexpected(report?.unexpected ?? []),
-    [report?.unexpected],
-  );
-  const [unexpectedQuery, setUnexpectedQuery] = useState("");
-  const filteredUnexpected = useMemo(() => {
-    const q = unexpectedQuery.trim().toLowerCase();
-    if (!q) return unexpectedGroups;
-    return unexpectedGroups.filter((g) =>
-      (g.name + " " + g.category).toLowerCase().includes(q),
-    );
-  }, [unexpectedGroups, unexpectedQuery]);
 
   if (!session.session) {
     return (
@@ -119,7 +106,7 @@ export function RecordingDashboard() {
       </div>
 
       <div className={styles.sectionHeader}>
-        <span className={styles.sectionTitle}>선택한 이벤트 정의 상태</span>
+        <span className={styles.sectionTitle}>선택 이벤트 상태</span>
         <span className={styles.sectionCount}>{rows.length}</span>
       </div>
       {rows.length === 0 ? (
@@ -133,42 +120,31 @@ export function RecordingDashboard() {
       )}
 
       <div className={styles.sectionHeader}>
-        <span className={styles.sectionTitle}>예외 이벤트</span>
-        <span className={styles.sectionCount}>{unexpectedGroups.length}</span>
+        <span className={styles.sectionTitle}>실시간 스트림</span>
+        <div className={styles.sectionSpacer} />
+        {isRecording && (
+          <span className={styles.liveBadge}>
+            <span className={styles.liveBadgeDot} aria-hidden="true" />
+            live
+          </span>
+        )}
       </div>
-      <input
-        className={styles.searchInput}
-        type="search"
-        placeholder="이벤트 이름 또는 그룹으로 검색"
-        value={unexpectedQuery}
-        onChange={(e) => setUnexpectedQuery(e.target.value)}
-        disabled={unexpectedGroups.length === 0}
-      />
-      {filteredUnexpected.length === 0 ? (
+      {stream.length === 0 ? (
         <div className={styles.emptyState}>
-          {unexpectedGroups.length === 0
-            ? "예외 이벤트가 아직 없습니다."
-            : "조건에 맞는 이벤트가 없습니다."}
+          {isRecording
+            ? "수집된 이벤트가 아직 없습니다."
+            : "녹화 중 수집된 이벤트가 없습니다."}
         </div>
       ) : (
-        <div className={styles.unexpectedTable}>
-          <div className={styles.unexpectedHeader}>
-            <span>이벤트</span>
-            <span>카테고리</span>
-            <span>최초 수집</span>
-          </div>
-          <div className={styles.unexpectedBody}>
-            {filteredUnexpected.map((group) => (
-              <div key={group.name} className={styles.unexpectedRow}>
-                <span className={styles.unexpectedCellMono}>{group.name}</span>
-                <span className={styles.unexpectedCell}>{group.category}</span>
-                <span className={styles.unexpectedCell}>
-                  {formatClock(group.firstSeenAt)}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
+        <ul className={styles.streamList}>
+          {stream.map((entry, idx) => (
+            <StreamRow
+              key={entry.id}
+              entry={entry}
+              fresh={idx === 0 && isRecording}
+            />
+          ))}
+        </ul>
       )}
     </section>
   );
@@ -308,36 +284,52 @@ function SpecRow({ row }: { row: SpecRowModel }) {
   );
 }
 
-interface UnexpectedGroup {
-  name: string;
-  category: string;
-  firstSeenAt: number;
+function StreamRow({
+  entry,
+  fresh,
+}: {
+  entry: LiveStreamEntry;
+  fresh: boolean;
+}) {
+  const paramStr = formatParams(entry.params);
+  const dotClass = STREAM_DOT_CLASS[entry.status];
+  const nameClass =
+    entry.status === "exception"
+      ? styles.streamNameException
+      : styles.streamName;
+  return (
+    <li className={fresh ? styles.streamRowFresh : styles.streamRow}>
+      <span className={dotClass} aria-hidden="true" />
+      <div className={styles.streamMain}>
+        <div className={styles.streamHead}>
+          <span className={styles.streamTime}>{formatClock(entry.timestamp)}</span>
+          {entry.status === "exception" && (
+            <span className={styles.streamExceptionLabel}>예외</span>
+          )}
+        </div>
+        <span className={nameClass}>{entry.eventName}</span>
+        {paramStr && <span className={styles.streamParams}>{paramStr}</span>}
+      </div>
+    </li>
+  );
 }
 
-function groupUnexpected(events: readonly CapturedEvent[]): UnexpectedGroup[] {
-  const map = new Map<string, UnexpectedGroup>();
-  for (const event of events) {
-    const name = canonicalEventName(event);
-    const existing = map.get(name);
-    if (existing) {
-      if (event.timestamp < existing.firstSeenAt) {
-        existing.firstSeenAt = event.timestamp;
-      }
-    } else {
-      map.set(name, {
-        name,
-        category: buildCategory(event),
-        firstSeenAt: event.timestamp,
-      });
-    }
+const STREAM_DOT_CLASS: Record<LiveStreamStatus, string> = {
+  pass: styles.streamDotPass,
+  warn: styles.streamDotWarn,
+  fail: styles.streamDotFail,
+  exception: styles.streamDotException,
+};
+
+function formatParams(params: Record<string, unknown>): string {
+  const parts: string[] = [];
+  for (const [k, v] of Object.entries(params)) {
+    if (v == null) continue;
+    if (typeof v === "object") continue;
+    parts.push(`${k}=${String(v)}`);
+    if (parts.length >= 4) break;
   }
-  return [...map.values()].sort((a, b) => a.firstSeenAt - b.firstSeenAt);
-}
-
-function buildCategory(event: CapturedEvent): string {
-  const parts = [event.params["pageName"], event.params["sectionName"]]
-    .filter((v): v is string => typeof v === "string" && v.length > 0);
-  return parts.length === 0 ? "-" : parts.join(" · ");
+  return parts.join(" ");
 }
 
 function ElapsedTime({ startedAt }: { startedAt: number }) {

@@ -87,6 +87,18 @@ export const hydrateAuthStatusAtom = atom(null, async (get, set) => {
   }
 });
 
+/**
+ * 로드된 스펙을 비우고 load state를 idle로 되돌린다. PhaseLayout이 이를 보고
+ * 다시 Connect 화면으로 전환한다. 사용자가 "뒤로 가기"로 재인증/재로드를
+ * 원할 때 쓰이며, 선택한 이벤트 이름은 보존한다(시트를 새로 받아도 이름이
+ * 그대로이면 체크 상태가 복원되도록).
+ */
+export const disconnectSpecsAtom = atom(null, (_get, set) => {
+  set(specsAtom, []);
+  set(specsLoadStateAtom, "idle");
+  set(specsErrorAtom, undefined);
+});
+
 /** OAuth 로그인 트리거. 성공 후 호출자가 `loadSpecs`를 재시도한다. */
 export const authenticateAtom = atom(null, async (get, set) => {
   const client = requireBackgroundClient(get(backgroundClientAtom));

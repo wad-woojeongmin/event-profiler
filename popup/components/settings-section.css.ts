@@ -39,7 +39,7 @@ export const description = style({
 export const sheetCard = style({
   display: "flex",
   flexDirection: "column",
-  gap: vars.space.xs,
+  gap: "2px",
   padding: `${vars.space.md} ${vars.space.md}`,
   background: vars.color.bg,
   border: `1px solid ${vars.color.border}`,
@@ -53,6 +53,13 @@ export const sheetLabel = style({
   fontWeight: vars.font.weight.bold,
   textTransform: "uppercase",
   letterSpacing: "0.04em",
+  marginBottom: "2px",
+});
+
+export const sheetTitle = style({
+  fontSize: vars.font.size.md,
+  fontWeight: vars.font.weight.bold,
+  color: vars.color.text,
 });
 
 export const sheetLink = style({
@@ -66,34 +73,6 @@ export const sheetLink = style({
   selectors: {
     "&:hover": { color: vars.color.primary, textDecoration: "underline" },
   },
-});
-
-export const sheetLoaded = style({
-  display: "flex",
-  alignItems: "center",
-  gap: vars.space.xs,
-  marginTop: vars.space.xs,
-  paddingTop: vars.space.xs,
-  borderTop: `1px dashed ${vars.color.border}`,
-  fontSize: vars.font.size.xs,
-  color: vars.color.passText,
-});
-
-export const checkMark = style({
-  display: "inline-grid",
-  placeItems: "center",
-  width: "14px",
-  height: "14px",
-  borderRadius: "50%",
-  background: vars.color.passSoft,
-  color: vars.color.passText,
-  fontSize: "10px",
-  fontWeight: vars.font.weight.bold,
-});
-
-export const loadedCount = style({
-  fontVariantNumeric: "tabular-nums",
-  fontWeight: vars.font.weight.bold,
 });
 
 export const spacer = style({
@@ -111,10 +90,24 @@ export const primaryButton = style({
   fontSize: vars.font.size.md,
   height: "40px",
   cursor: "pointer",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: "6px",
   selectors: {
     "&:hover:not(:disabled)": { background: vars.color.primaryHover },
     "&:disabled": { opacity: 0.5, cursor: "not-allowed" },
   },
+});
+
+export const googleIcon = style({
+  display: "inline-grid",
+  placeItems: "center",
+  width: "14px",
+  height: "14px",
+  background: "#fff",
+  borderRadius: "2px",
+  padding: "1px",
 });
 
 export const footnote = style({
@@ -129,4 +122,27 @@ export const errorText = style({
   fontSize: vars.font.size.xs,
   color: vars.color.failText,
   wordBreak: "break-word",
+});
+
+// 푸터: 디자인은 "스펙 로드 대기" 비활성 버튼을 항상 노출한다. 스펙이 로드되면
+// PhaseLayout이 다음 화면으로 전환하므로 이 버튼은 실제로 활성 상태로 보여질
+// 일이 없다. 시각적 일관성을 위해 자리를 고정해 둔다.
+export const footer = style({
+  flexShrink: 0,
+  padding: vars.space.md,
+  borderTop: `1px solid ${vars.color.border}`,
+  background: vars.color.bg,
+});
+
+export const footerButton = style({
+  width: "100%",
+  height: "40px",
+  border: "none",
+  background: vars.color.surface,
+  color: vars.color.textMuted,
+  borderRadius: vars.radius.md,
+  fontWeight: vars.font.weight.medium,
+  fontSize: vars.font.size.md,
+  cursor: "not-allowed",
+  opacity: 0.8,
 });

@@ -12,7 +12,27 @@ export const wrapper = style({
   flexShrink: 0,
 });
 
-export const left = style({
+export const backButton = style({
+  border: "none",
+  background: "transparent",
+  color: vars.color.textMuted,
+  width: "22px",
+  height: "22px",
+  borderRadius: vars.radius.sm,
+  cursor: "pointer",
+  display: "inline-grid",
+  placeItems: "center",
+  flexShrink: 0,
+  padding: 0,
+  selectors: {
+    "&:hover": {
+      background: vars.color.surface,
+      color: vars.color.text,
+    },
+  },
+});
+
+export const titleColumn = style({
   display: "flex",
   flexDirection: "column",
   gap: "2px",
@@ -39,27 +59,6 @@ export const metaStrong = style({
   color: vars.color.text,
   fontWeight: vars.font.weight.bold,
   fontVariantNumeric: "tabular-nums",
-});
-
-export const refreshButton = style({
-  border: `1px solid ${vars.color.border}`,
-  background: vars.color.bg,
-  color: vars.color.textMuted,
-  width: "28px",
-  height: "28px",
-  borderRadius: vars.radius.sm,
-  cursor: "pointer",
-  fontSize: "14px",
-  display: "inline-grid",
-  placeItems: "center",
-  flexShrink: 0,
-  selectors: {
-    "&:hover:not(:disabled)": {
-      background: vars.color.surface,
-      color: vars.color.text,
-    },
-    "&:disabled": { opacity: 0.5, cursor: "not-allowed" },
-  },
 });
 
 export const right = style({

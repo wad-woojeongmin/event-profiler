@@ -1,7 +1,8 @@
 // 선택 칼럼.
 //
-// 우측: 사용자가 고른 스펙만 표시. 행 클릭(또는 × 버튼)은 `toggleSelection`으로
-// 선택 해제 → 좌측 미선택 칼럼으로 돌려보낸다.
+// 좌측: 사용자가 고른 스펙만 표시. 행 클릭(또는 × 버튼)은 `toggleSelection`으로
+// 선택 해제 → 우측 스펙 풀로 돌려보낸다. 칼럼 헤더에 "해제" 액션을 두어 전체
+// 선택을 한 번에 비울 수 있다.
 
 import { useAtomValue, useSetAtom } from "jotai";
 
@@ -11,6 +12,7 @@ import {
 } from "../atoms/filter-atoms.ts";
 import {
   selectedEventNamesAtom,
+  setSelectionAtom,
   toggleSelectionAtom,
 } from "../atoms/recording-atoms.ts";
 
@@ -22,17 +24,29 @@ export function SelectedColumn() {
   const query = useAtomValue(selectedQueryAtom);
   const setQuery = useSetAtom(selectedQueryAtom);
   const toggle = useSetAtom(toggleSelectionAtom);
+  const setSelection = useSetAtom(setSelectionAtom);
+
+  const clearAll = (): void => setSelection([]);
 
   return (
     <div className={styles.column}>
       <div className={styles.columnHeader}>
-        <span className={styles.columnTitle}>선택된 이벤트 정의</span>
-        <span className={styles.columnCount}>{selected.size}개</span>
+        <span className={styles.columnTitle}>선택됨</span>
+        <span className={styles.columnCount}>{selected.size}</span>
+        <div className={styles.columnSpacer} />
+        <button
+          type="button"
+          className={styles.columnAction}
+          onClick={clearAll}
+          disabled={selected.size === 0}
+        >
+          해제
+        </button>
       </div>
       <input
         className={styles.searchInput}
         type="search"
-        placeholder="이벤트명 · 페이지명"
+        placeholder="검색"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         disabled={selected.size === 0}
@@ -41,7 +55,7 @@ export function SelectedColumn() {
         <div className={styles.list}>
           <div className={styles.emptyState}>
             {selected.size === 0
-              ? "좌측에서 이벤트를 선택하세요."
+              ? "우측에서 이벤트를 추가하세요"
               : "조건에 맞는 이벤트가 없습니다."}
           </div>
         </div>
@@ -53,13 +67,25 @@ export function SelectedColumn() {
               className={styles.item}
               onClick={() => toggle(spec.amplitudeEventName)}
             >
+              <span className={styles.checkboxChecked} aria-hidden="true">
+                <svg
+                  width="8"
+                  height="8"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M3 8.5l3 3 7-7" />
+                </svg>
+              </span>
               <div className={styles.itemMain}>
                 <span className={styles.itemTitle}>
                   {spec.humanEventName || spec.amplitudeEventName}
                 </span>
-                <span className={styles.itemSubtitle}>
-                  {spec.pageName} · {spec.amplitudeEventName}
-                </span>
+                <span className={styles.itemSubtitle}>{spec.pageName}</span>
               </div>
               <button
                 type="button"
