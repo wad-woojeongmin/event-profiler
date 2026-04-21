@@ -30,7 +30,9 @@ export function TimelineChart({
   statusByEventName,
 }: Props) {
   if (captured.length === 0) {
-    return <div className={styles.empty}>녹화 중 수집된 이벤트가 없습니다.</div>;
+    return (
+      <div className={styles.empty}>녹화 중 수집된 이벤트가 없습니다.</div>
+    );
   }
 
   const start = session.startedAt;

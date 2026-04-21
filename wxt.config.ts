@@ -36,7 +36,12 @@ export default defineConfig({
       // 툴바 아이콘 + 배지(`browser.action.setBadgeText`)를 쓰려면 빈 action이
       // 필요하고, 클릭 시 side panel이 열리도록 background에서 behavior를 세팅한다.
       action: {},
-      host_permissions: ["https://*.catchtable.co.kr/*"],
+      // `<all_urls>`는 `browser.tabs.captureVisibleTab` 때문에 필요하다.
+      // Chrome은 이 API에 대해 스코프드 host 권한을 인정하지 않고 `<all_urls>` 또는
+      // `activeTab`(일시 부여)만 받는다. 녹화 중 네비게이션으로 activeTab이 해제되면
+      // 캡처가 전부 막히므로 넓은 권한으로 정리한다. 내부 QA 도구 가정.
+      // content script 범위는 `entrypoints/content.ts`의 `matches`로 별도 제한된다.
+      host_permissions: ["<all_urls>"],
       ...(EXTENSION_PUBLIC_KEY ? { key: EXTENSION_PUBLIC_KEY } : {}),
       ...(OAUTH_CLIENT_ID
         ? {
