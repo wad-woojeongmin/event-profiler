@@ -174,4 +174,162 @@ describe("parseSpecRows", () => {
       params: ["shopRef", "shopName", "serviceType"],
     });
   });
+
+  // 시트 편집자들이 실제로 남기는 이형 헤더를 관용 처리한다. 헤더 기반 단일
+  // 휴리스틱이 Tab 03·07·14·21·22처럼 제각각인 탭을 흡수할 수 있어야 한다.
+  it("bare-pair 컨벤션: 접미사 없는 컬럼이 두 번 나오면 1번째=as-is, 2번째=to-be", () => {
+    // 헤더: pageName(as-is)/(to-be) 없이 `pageName` 두 번만 등장 (Tab 07 패턴).
+    const header = [
+      "status",
+      "pageName", "pageName",
+      "objectContainer", "objectContainer",
+      "objectType", "objectType",
+      "eventType", "eventType",
+      "logType",
+      "eventName(Amplitude)",
+      "eventName(GA)",
+    ];
+    const dataRow = [
+      "applied",
+      "legacyPage", "newPage",
+      "legacySec", "newSec",
+      "legacyAct", "newAct",
+      "impr", "click",
+      "event",
+      "click__newAct",
+      "newPage_newSec_newAct_click",
+    ];
+    const { specs, warnings } = parseSpecRows([[], header, dataRow]);
+    expect(specs).toHaveLength(1);
+    expect(specs[0]).toMatchObject({
+      pageName: "newPage",
+      sectionName: "newSec",
+      actionName: "newAct",
+      eventType: "click",
+      amplitudeEventName: "newPage_newSec_newAct_click",
+      humanEventName: "click__newAct",
+    });
+    expect(warnings.filter((w) => w.code === "ambiguous_header_resolution"))
+      .toHaveLength(0);
+  });
+
+  // Tab 14 케이스: `log_type` 언더스코어 표기.
+  it("언더스코어·공백이 섞인 헤더를 동치로 처리한다 (`log_type` ↔ `logType`)", () => {
+    const header = [
+      "pageName(as-is)", "pageName(to-be)",
+      "log_type",
+      "eventName",
+      "eventName(GA)",
+    ];
+    const dataRow = [
+      "oldPage", "newPage",
+      "event",
+      "click__thing",
+      "newPage_thing_click",
+    ];
+    const { specs } = parseSpecRows([[], header, dataRow]);
+    expect(specs).toHaveLength(1);
+    expect(specs[0]?.logType).toBe("event");
+  });
+
+  // Tab 22 케이스: eventName(GA) 레이블이 맨 앞(col 0)에서 canonical을 담고,
+  // eventName(Amplitude) 레이블이 human을 담는 반전 배치.
+  it("eventName 컬럼 레이블이 swap되어도 값 패턴으로 canonical을 식별한다", () => {
+    const header = [
+      "eventName(GA)", "event 발생경로",
+      "pageName", "pageName",
+      "objectContainer", "objectContainer",
+      "objectType", "objectType",
+      "eventType", "eventType",
+      "logType",
+      "eventName(Amplitude)",
+    ];
+    const dataRow = [
+      "bookmarkDone_bookmark_click", "저장 바텀시트 > 북마크",
+      "", "",
+      "bookmarkDone", "bookmarkDone",
+      "bookmark", "bookmark",
+      "click", "click",
+      "event",
+      "click__bookmark",
+    ];
+    const { specs } = parseSpecRows([[], header, dataRow]);
+    expect(specs).toHaveLength(1);
+    expect(specs[0]).toMatchObject({
+      amplitudeEventName: "bookmarkDone_bookmark_click",
+      humanEventName: "click__bookmark",
+      sectionName: "bookmarkDone",
+      actionName: "bookmark",
+      eventType: "click",
+    });
+  });
+
+  // Tab 21 케이스: 헤더가 truncate되어 canonical eventName 컬럼이 헤더에
+  // 선언조차 되어 있지 않다. 헤더 범위 밖 셀을 fallback으로 탐색해 복구한다.
+  it("헤더가 data rows보다 짧게 truncate되어도 canonical eventName을 복구한다", () => {
+    const header = [
+      "status",
+      "pageName(as-is)", "pageName",
+      "objectContainer(as-is)", "objectContainer",
+      "objectType(as-is)", "objectType",
+      "eventType(as-is)", "eventType",
+      "logType",
+      "eventName(Amplitude)",
+    ];
+    // 데이터 행에 헤더에 없는 뒤쪽 컬럼이 추가로 있음 (트렁케이트된 실제 시트).
+    const dataRow = [
+      "applied",
+      "shopDetail", "shopDetail",
+      "bookmarkDone", "bookmarkDone",
+      "memo", "memo",
+      "click", "click",
+      "bottomsheet",
+      "click__memo",
+      "", "", "", "", "",
+      "$shopRef, $memoEmpty",
+      "shopDetail_bookmarkDone_memo_click_",
+      "shopDetail_bookmarkDone_memo_click",
+    ];
+    const { specs } = parseSpecRows([[], header, dataRow]);
+    expect(specs).toHaveLength(1);
+    expect(specs[0]?.amplitudeEventName).toBe(
+      "shopDetail_bookmarkDone_memo_click",
+    );
+  });
+
+  // 제어문자 `\x08`이 포함된 `\bappliedAt` 같은 헤더는 정규화 단계에서
+  // 제거되어 base 필드 매칭을 방해하지 않아야 한다.
+  it("제어문자(\\x08)가 섞인 헤더를 무시한다", () => {
+    const header = [
+      "\bappliedAt",
+      "pageName(as-is)", "pageName(to-be)",
+      "logType",
+      "eventName(Amplitude)",
+      "eventName(GA)",
+    ];
+    const dataRow = [
+      "2025-01-01",
+      "legacy", "target",
+      "event",
+      "click__thing",
+      "target_thing_click",
+    ];
+    const { specs } = parseSpecRows([[], header, dataRow]);
+    expect(specs).toHaveLength(1);
+    expect(specs[0]?.pageName).toBe("target");
+  });
+
+  // logType 컬럼이 전혀 없으면 경고로 기록한다 — base 필드 경계를 잃어 Tab 24
+  // 같은 "2중 스키마" 탭에서 뒤쪽 블록이 잘못 매칭될 위험이 있어 사용자가
+  // 인지할 수 있도록 한다.
+  it("logType 컬럼이 없으면 `no_logtype_boundary` 경고를 낸다", () => {
+    const header = [
+      "pageName(to-be)",
+      "eventType(to-be)",
+      "eventName(GA)",
+    ];
+    const dataRow = ["p", "click", "p_thing_click"];
+    const { warnings } = parseSpecRows([[], header, dataRow]);
+    expect(warnings.some((w) => w.code === "no_logtype_boundary")).toBe(true);
+  });
 });

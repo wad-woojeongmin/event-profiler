@@ -9,8 +9,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeBrowser } from "wxt/testing";
 
 import type { RecordingSessionState } from "@/types/messages.ts";
+import type { EventSpec } from "@/types/spec.ts";
 
 const sendMessageMock = vi.fn();
+const fetchSheetRowsMock = vi.fn(async (_title: string) => [] as string[][]);
+const listSheetTabsMock = vi.fn(async () => [{ title: "main", gid: 0 }]);
+const parseSpecRowsMock = vi.fn((_rows: string[][], _opts?: unknown) => ({
+  specs: [] as EventSpec[],
+  warnings: [],
+}));
 
 vi.mock("@/messaging/extension-messaging.ts", () => ({
   sendMessage: (...args: unknown[]) => sendMessageMock(...args),
@@ -20,9 +27,14 @@ vi.mock("@/messaging/extension-messaging.ts", () => ({
 vi.mock("@/sheets/index.ts", () => ({
   authenticate: vi.fn(async () => undefined),
   signOut: vi.fn(async () => undefined),
-  fetchSheetRows: vi.fn(async () => [] as string[][]),
-  listSheetTabs: vi.fn(async () => [{ title: "main", gid: 0 }]),
-  parseSpecRows: vi.fn(() => ({ specs: [], warnings: [] })),
+  hasCachedToken: vi.fn(async () => false),
+  fetchSheetRows: (title: string) => fetchSheetRowsMock(title),
+  listSheetTabs: () => listSheetTabsMock(),
+  parseSpecRows: (rows: string[][], opts?: unknown) =>
+    parseSpecRowsMock(rows, opts),
+  // 어댑터가 실제 사용하는 패턴을 그대로 노출한다. 실 모듈과 드리프트되지 않도록
+  // constants.ts와 동일 정의를 복제(실제 구현과 diff 시 테스트도 업데이트).
+  LOG_DEFINITION_TAB_PATTERN: /^\d+\.\s*.*신규\s*로그\s*설계/,
 }));
 
 const ACTIVE: RecordingSessionState = {
@@ -45,9 +57,98 @@ const { createMessagingBackgroundClient } = await import(
 beforeEach(() => {
   fakeBrowser.reset();
   sendMessageMock.mockReset();
+  fetchSheetRowsMock.mockReset();
+  fetchSheetRowsMock.mockImplementation(async () => [] as string[][]);
+  listSheetTabsMock.mockReset();
+  listSheetTabsMock.mockImplementation(async () => [
+    { title: "main", gid: 0 },
+  ]);
+  parseSpecRowsMock.mockReset();
+  parseSpecRowsMock.mockImplementation(() => ({ specs: [], warnings: [] }));
 });
 
+function makeSpec(amplitudeEventName: string, sourceSheet: string): EventSpec {
+  return {
+    amplitudeEventName,
+    humanEventName: amplitudeEventName,
+    pageName: "p",
+    sectionName: undefined,
+    actionName: undefined,
+    eventType: "click",
+    logType: undefined,
+    params: [],
+    referencedExtensions: [],
+    rawExtension: "",
+    status: "",
+    sourceRow: 2,
+    sourceSheet,
+  };
+}
+
 describe("createMessagingBackgroundClient", () => {
+  it("loadSpecs는 로그 정의 탭 패턴과 일치하는 탭만 병렬 로드하여 specs를 합친다", async () => {
+    // 컨벤션·가이드·AI요약 등 무관한 탭이 섞여 있어야 버그 재발 방지.
+    listSheetTabsMock.mockResolvedValue([
+      { title: "00. Convention Rule", gid: 1 },
+      { title: "FY26-로그설계 Guide", gid: 2 },
+      { title: "AI올인원 요약", gid: 3 },
+      { title: "03. 메인_신규로그설계", gid: 4 },
+      { title: "07. 타임라인_신규 로그설계 (최종완)", gid: 5 },
+      { title: "22.전환이 필요한 로그_신규로그설계", gid: 6 },
+    ]);
+    fetchSheetRowsMock.mockImplementation(async (title: string) => [
+      [title, "row"],
+    ]);
+    parseSpecRowsMock.mockImplementation((_rows, opts) => {
+      const sheet = (opts as { sheetName?: string } | undefined)?.sheetName ?? "?";
+      return { specs: [makeSpec(`e_${sheet}`, sheet)], warnings: [] };
+    });
+
+    const client = createMessagingBackgroundClient();
+    const specs = await client.loadSpecs();
+
+    // 정의 탭 3개만 fetch되었는지 — 무관한 탭으로는 호출되지 않아야.
+    expect(fetchSheetRowsMock).toHaveBeenCalledTimes(3);
+    const fetched = fetchSheetRowsMock.mock.calls.map((c) => c[0]);
+    expect(fetched).toEqual([
+      "03. 메인_신규로그설계",
+      "07. 타임라인_신규 로그설계 (최종완)",
+      "22.전환이 필요한 로그_신규로그설계",
+    ]);
+
+    // 합쳐진 specs는 탭 순서대로 누적된다.
+    expect(specs.map((s) => s.amplitudeEventName)).toEqual([
+      "e_03. 메인_신규로그설계",
+      "e_07. 타임라인_신규 로그설계 (최종완)",
+      "e_22.전환이 필요한 로그_신규로그설계",
+    ]);
+  });
+
+  it("loadSpecs(title)로 명시되면 해당 탭만 단일 로드한다", async () => {
+    fetchSheetRowsMock.mockResolvedValue([["x"]]);
+    parseSpecRowsMock.mockReturnValue({
+      specs: [makeSpec("only", "03. 메인_신규로그설계")],
+      warnings: [],
+    });
+
+    const client = createMessagingBackgroundClient();
+    const specs = await client.loadSpecs("03. 메인_신규로그설계");
+
+    expect(listSheetTabsMock).not.toHaveBeenCalled();
+    expect(fetchSheetRowsMock).toHaveBeenCalledWith("03. 메인_신규로그설계");
+    expect(specs).toHaveLength(1);
+  });
+
+  it("loadSpecs는 매칭 탭이 없으면 안내 에러를 throw한다", async () => {
+    listSheetTabsMock.mockResolvedValue([
+      { title: "00. Convention Rule", gid: 1 },
+      { title: "AI올인원 요약", gid: 2 },
+    ]);
+    const client = createMessagingBackgroundClient();
+    await expect(client.loadSpecs()).rejects.toThrow(/로그 정의 탭/);
+    expect(fetchSheetRowsMock).not.toHaveBeenCalled();
+  });
+
   it("startRecording은 배열 복사본과 tabId를 담아 전송한다", async () => {
     sendMessageMock.mockResolvedValue(undefined);
     const targets = ["a", "b"];

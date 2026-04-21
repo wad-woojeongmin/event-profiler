@@ -74,7 +74,7 @@ export function SettingsSection() {
           role="status"
         >
           {specs.length === 0
-            ? "불러온 스펙이 없습니다. 시트 첫 탭이 비어있거나 스펙 형식과 일치하지 않습니다."
+            ? "불러온 스펙이 없습니다. 로그 정의 탭이 비어있거나 스펙 형식과 일치하지 않습니다."
             : `${specs.length}개 스펙 로드 완료`}
         </div>
       )}

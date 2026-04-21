@@ -7,7 +7,12 @@
 import { useAtomValue, useSetAtom } from "jotai";
 
 import { filteredSpecsAtom, filterQueryAtom } from "../atoms/filter-atoms.ts";
-import { recordingPhaseAtom, selectedEventNamesAtom, setSelectionAtom, toggleSelectionAtom } from "../atoms/recording-atoms.ts";
+import {
+  recordingPhaseAtom,
+  selectedEventNamesAtom,
+  setSelectionAtom,
+  toggleSelectionAtom,
+} from "../atoms/recording-atoms.ts";
 import { specsAtom } from "../atoms/specs-atoms.ts";
 
 import * as styles from "./spec-list.css.ts";
@@ -66,7 +71,8 @@ export function SpecList() {
       />
 
       <div className={styles.meta} aria-live="polite">
-        {selected.size}개 선택 · 표시 {filtered.length}개 / 전체 {allSpecs.length}개
+        {selected.size}개 선택 · 표시 {filtered.length}개 / 전체{" "}
+        {allSpecs.length}개
       </div>
 
       {filtered.length === 0 ? (

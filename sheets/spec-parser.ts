@@ -60,7 +60,7 @@ export function parseSpecRows(
     return { specs, warnings };
   }
 
-  const columns = buildColumnMap(headerRow);
+  const columns = resolveColumns(headerRow, headerRowIndex, warnings);
 
   for (let i = headerRowIndex + 1; i < rows.length; i++) {
     const row = rows[i];
@@ -78,8 +78,12 @@ export function parseSpecRows(
       continue;
     }
 
-    const amplitudeEventName = pickAmplitudeEventName(row, columns);
-    const humanEventName = pickFirst(row, columns.eventName) ?? "";
+    const amplitudeEventName = pickAmplitudeEventName(
+      row,
+      columns,
+      headerRow.length,
+    );
+    const humanEventName = pickHumanEventName(row, columns, amplitudeEventName);
 
     // 섹션 앵커 행(한 셀에만 섹션 제목)은 이벤트명 컬럼이 비어 있다.
     if (!amplitudeEventName && !humanEventName) {
@@ -153,45 +157,134 @@ interface ColumnMap {
   extension: number[];
 }
 
-function buildColumnMap(headerRow: string[]): ColumnMap {
-  const map: ColumnMap = {
-    status: [],
-    pageName: { toBe: [], asIs: [] },
-    objectContainer: { toBe: [], asIs: [] },
-    objectType: { toBe: [], asIs: [] },
-    eventType: { toBe: [], asIs: [] },
-    logType: [],
-    eventName: [],
-    object: [],
-    extension: [],
-  };
+/**
+ * 단일 휴리스틱으로 헤더를 해석한다. 시트마다 편집자가 `(as-is)`·`(to-be)`
+ * 접미사를 붙이는 방식이 제각각이라, 아래 규칙으로 관용 처리한다:
+ *
+ *  1) 정규화: 제어문자·언더스코어·공백을 모두 제거 후 소문자.
+ *     예) `log_type`, `logType`, `LOG TYPE` → 모두 `logtype`.
+ *  2) 경계: logType 컬럼을 base 필드(pageName/objectContainer/objectType/
+ *     eventType)와 이벤트명·파라미터 영역의 구분선으로 쓴다. Tab 24처럼
+ *     pageName이 두 번 등장하는 시트에서 뒷쪽 블록을 무시하기 위한 장치.
+ *  3) bare-pair 관용: base 필드가 접미사 없이 두 번 등장하면 통상 앞이 as-is,
+ *     뒤가 to-be. 편집자들이 `(as-is)`·`(to-be)` 표기를 생략한 탭 다수가
+ *     이 패턴을 따른다(시트 가이드 없이 퍼진 사실상의 컨벤션).
+ *
+ * 명확하게 판단할 수 없는 경우에만 `ambiguous_header_resolution` 경고를
+ * 발생시켜 리포트에 남긴다.
+ */
+function resolveColumns(
+  headerRow: string[],
+  headerRowIndex: number,
+  warnings: ParseWarning[],
+): ColumnMap {
+  const headerSourceRow = headerRowIndex + 1;
+  const normalized = headerRow.map((raw) => normalizeHeader(raw));
 
-  headerRow.forEach((raw, index) => {
-    const name = normalizeHeader(raw);
-    if (!name) return;
-
-    if (name === "status") map.status.push(index);
-    else if (name === "pagename(to-be)") map.pageName.toBe.push(index);
-    else if (name === "pagename(as-is)") map.pageName.asIs.push(index);
-    else if (name === "objectcontainer(to-be)")
-      map.objectContainer.toBe.push(index);
-    else if (name === "objectcontainer(as-is)")
-      map.objectContainer.asIs.push(index);
-    else if (name === "objecttype(to-be)") map.objectType.toBe.push(index);
-    else if (name === "objecttype(as-is)") map.objectType.asIs.push(index);
-    else if (name === "eventtype(to-be)") map.eventType.toBe.push(index);
-    else if (name === "eventtype(as-is)") map.eventType.asIs.push(index);
-    else if (name === "logtype") map.logType.push(index);
-    else if (name === "eventname") map.eventName.push(index);
-    else if (name === "object(string)") map.object.push(index);
-    else if (name === "extension") map.extension.push(index);
+  const logType: number[] = [];
+  normalized.forEach((name, idx) => {
+    if (name === "logtype") logType.push(idx);
   });
 
-  return map;
+  // base 필드 후보는 logType 왼쪽만 대상으로 삼는다. 없으면 전체 범위.
+  const boundary = logType[0] ?? normalized.length;
+  if (logType.length === 0) {
+    warnings.push({
+      code: "no_logtype_boundary",
+      row: headerSourceRow,
+      message:
+        "logType 컬럼이 없어 base 필드(pageName/objectContainer/objectType/eventType) 경계를 판정할 수 없음",
+    });
+  }
+
+  const resolvePair = (
+    base: string,
+  ): { toBe: number[]; asIs: number[] } => {
+    const asIs: number[] = [];
+    const toBe: number[] = [];
+    const bare: number[] = [];
+    normalized.forEach((name, idx) => {
+      if (idx >= boundary) return;
+      if (stripSuffix(name) !== base) return;
+      if (/\(asis\)/.test(name)) asIs.push(idx);
+      else if (/\(tobe\)/.test(name)) toBe.push(idx);
+      else bare.push(idx);
+    });
+
+    if (bare.length === 0) return { toBe, asIs };
+
+    if (asIs.length === 0 && toBe.length === 0) {
+      // 전부 bare: 관용 컨벤션 적용. 3개 이상은 모호하므로 경고.
+      if (bare.length === 1) {
+        toBe.push(bare[0]!);
+      } else if (bare.length === 2) {
+        asIs.push(bare[0]!);
+        toBe.push(bare[1]!);
+      } else {
+        warnings.push({
+          code: "ambiguous_header_resolution",
+          row: headerSourceRow,
+          message: `"${base}" 헤더가 접미사 없이 ${bare.length}개 — 마지막만 to-be로 사용`,
+          detail: `columns=${bare.join(",")}`,
+        });
+        toBe.push(bare[bare.length - 1]!);
+        for (let i = 0; i < bare.length - 1; i++) asIs.push(bare[i]!);
+      }
+      return { toBe, asIs };
+    }
+
+    // 분류된 컬럼과 bare가 섞여 있음 — bare는 toBe로 보되 경고한다.
+    warnings.push({
+      code: "ambiguous_header_resolution",
+      row: headerSourceRow,
+      message: `"${base}" 헤더에 (as-is)/(to-be)와 접미사 없는 컬럼이 혼재`,
+      detail: `asIs=${asIs.join(",")}, toBe=${toBe.join(",")}, bare=${bare.join(",")}`,
+    });
+    toBe.push(...bare);
+    return { toBe, asIs };
+  };
+
+  const status: number[] = [];
+  const eventName: number[] = [];
+  const object: number[] = [];
+  const extension: number[] = [];
+  normalized.forEach((name, idx) => {
+    if (name === "status") status.push(idx);
+    else if (name.startsWith("eventname")) eventName.push(idx);
+    else if (name === "object(string)") object.push(idx);
+    else if (name === "extension") extension.push(idx);
+  });
+
+  return {
+    status,
+    pageName: resolvePair("pagename"),
+    objectContainer: resolvePair("objectcontainer"),
+    objectType: resolvePair("objecttype"),
+    eventType: resolvePair("eventtype"),
+    logType,
+    eventName,
+    object,
+    extension,
+  };
 }
 
+/**
+ * 제어문자(`\x00-\x1F`)와 언더스코어를 제거해 `log_type`·`event_type`을
+ * `logtype`·`eventtype`과 동치로 취급한다. 공백도 전부 제거해
+ * `"objectType (as-is)"` 같은 표기를 흡수한다.
+ */
 function normalizeHeader(raw: string): string {
-  return raw.trim().toLowerCase().replace(/\s+/g, "");
+  return raw
+    .replace(/[\x00-\x1F]/g, "")
+    .replace(/_/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, "")
+    .trim();
+}
+
+/** `"pagename(to-be)"` → `"pagename"`. 괄호 블록을 모두 제거한다. */
+function stripSuffix(normalized: string): string {
+  return normalized.replace(/\([^)]*\)/g, "");
 }
 
 // ---------- 행 헬퍼 ----------
@@ -216,32 +309,81 @@ function pickToBe(
 }
 
 /**
- * Amplitude 이벤트명 = `__` 구분자·trailing `_` 모두 없는 마지막 `eventName`.
- * 시트에는 eventName 컬럼이 보통 3개 존재한다:
- *   1) human-readable: `click__banner`
- *   2) GA4 변형: `shopDetail_appDown_banner_click_`  (trailing `_`)
- *   3) Amplitude 최종: `shopDetail_appDown_banner_click`
- * (3)을 뒤에서부터 스캔해 찾는다.
+ * Amplitude 이벤트명은 **값 패턴**으로 식별한다 — 헤더 레이블은 탭마다
+ * 뒤섞여 있어 신뢰할 수 없다. 예: Tab 22는 `eventName(GA)` 컬럼이 실제로는
+ * Amplitude 규격(`bookmarkDone_bookmark_click`)을 담고, `eventName(Amplitude)`
+ * 컬럼이 사람이 읽기 쉬운 `click__bookmark`를 담는 반전 배치다. Tab 21처럼
+ * 헤더 행이 data rows보다 짧게 truncate되어 canonical eventName 컬럼이
+ * 헤더 선언에서 아예 빠진 탭도 있다.
+ *
+ * 규칙:
+ *   - 후보: **row의 모든 셀**. 헤더 선언 여부 무시.
+ *   - 패턴: `lowerCamel(_segment)+` — 최소 1개의 `_`를 요구해 `shopDetail`
+ *     같은 단어, `applied` 같은 status 값을 배제한다. `click__banner` 같은
+ *     human 형식은 빈 세그먼트로 인해 자동 탈락.
+ *   - 우→좌 스캔: canonical 컬럼이 통상 후행에 위치.
+ *   - Fallback: trailing `_`가 붙은 GA4 변형만 뒤쪽 `_` 제거 후 재검증.
  */
-function pickAmplitudeEventName(row: string[], columns: ColumnMap): string {
+const AMPLITUDE_NAME_PATTERN = /^[a-z][a-zA-Z0-9]*(?:_[a-zA-Z0-9]+)+$/;
+
+/**
+ * human-readable 이벤트명을 고른다. Tab 22처럼 `eventName(GA)` 컬럼이
+ * 맨 앞에 있으면서 canonical 값을 담는 역배치 탭 때문에 단순히
+ * `pickFirst`로 첫 컬럼을 고르면 human이 아니라 canonical이 돌아올 수
+ * 있다. Amplitude 선택 결과를 제외하고 `__` 또는 canonical 패턴과
+ * 다른 첫 값을 human으로 본다.
+ */
+function pickHumanEventName(
+  row: string[],
+  columns: ColumnMap,
+  amplitudeEventName: string,
+): string {
+  for (const idx of columns.eventName) {
+    const v = row[idx]?.trim();
+    if (!v) continue;
+    if (v === amplitudeEventName) continue;
+    if (AMPLITUDE_NAME_PATTERN.test(v)) continue;
+    if (v.replace(/_+$/, "") === amplitudeEventName) continue;
+    return v;
+  }
+  // Fallback: 값이 하나뿐이면 그것을 그대로 — human/canonical 구분이 없는 탭 대비.
+  return pickFirst(row, columns.eventName) ?? "";
+}
+
+function pickAmplitudeEventName(
+  row: string[],
+  columns: ColumnMap,
+  headerLength: number,
+): string {
+  // 1) 헤더가 선언한 eventname* 컬럼을 우→좌로 스캔 (정상 케이스).
   for (let i = columns.eventName.length - 1; i >= 0; i--) {
     const idx = columns.eventName[i];
     if (idx === undefined) continue;
     const v = row[idx]?.trim();
     if (!v) continue;
-    if (v.includes("__")) continue; // human-readable 스킵
-    if (v.endsWith("_")) continue; // GA4 변형 스킵
-    return v;
+    if (AMPLITUDE_NAME_PATTERN.test(v)) return v;
   }
-
-  // Fallback: `__`가 없는 마지막 값을 trailing `_` 제거 후 반환.
+  // 2) 헤더 선언 eventname* 컬럼에 trailing `_` GA4 변형이 있을 때.
   for (let i = columns.eventName.length - 1; i >= 0; i--) {
     const idx = columns.eventName[i];
     if (idx === undefined) continue;
     const v = row[idx]?.trim();
-    if (v && !v.includes("__")) return v.replace(/_+$/, "");
+    if (!v) continue;
+    if (v.includes("__")) continue;
+    const stripped = v.replace(/_+$/, "");
+    if (AMPLITUDE_NAME_PATTERN.test(stripped)) return stripped;
   }
-
+  // 3) Tab 21처럼 헤더가 truncate된 경우: 헤더 범위 밖 셀만 스캔.
+  //    헤더 내 다른 컬럼(예: status)의 값이 우연히 패턴과 일치해 앵커 행을
+  //    이벤트 행으로 오판하지 않도록 스캔 범위를 제한한다.
+  for (let i = row.length - 1; i >= headerLength; i--) {
+    const v = row[i]?.trim();
+    if (!v) continue;
+    if (AMPLITUDE_NAME_PATTERN.test(v)) return v;
+    if (v.includes("__")) continue;
+    const stripped = v.replace(/_+$/, "");
+    if (AMPLITUDE_NAME_PATTERN.test(stripped)) return stripped;
+  }
   return "";
 }
 

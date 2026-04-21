@@ -3,7 +3,11 @@
 // 기본 인스턴스(`googleSheetsSource`)·API 헬퍼는 파일 내부로 숨긴다.
 
 export type { SheetTab, SheetsSource } from "./ports/sheets-source.ts";
-export { SPEC_SHEET_URL, SPEC_SPREADSHEET_ID } from "./constants.ts";
+export {
+  LOG_DEFINITION_TAB_PATTERN,
+  SPEC_SHEET_URL,
+  SPEC_SPREADSHEET_ID,
+} from "./constants.ts";
 export {
   createGoogleSheetsSource,
   type GoogleSheetsAdapterDeps,

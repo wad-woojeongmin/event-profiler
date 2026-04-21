@@ -17,10 +17,13 @@ import {
   fetchSheetRows,
   hasCachedToken as sheetsHasCachedToken,
   listSheetTabs,
+  LOG_DEFINITION_TAB_PATTERN,
   parseSpecRows,
   signOut as sheetsSignOut,
+  type SheetTab,
 } from "@/sheets/index.ts";
 import type { RecordingSessionState } from "@/types/messages.ts";
+import type { EventSpec } from "@/types/spec.ts";
 
 import type { BackgroundClient } from "../ports/background-client.ts";
 
@@ -47,6 +50,8 @@ export interface MessagingBackgroundClientDeps {
  * 팝업이 주입받을 실구현 어댑터.
  *
  * - `loadSpecs`: sheets 모듈의 `fetchSheetRows` + `parseSpecRows` 조합.
+ *   `sheetTitle`이 주어지면 해당 탭만 로드, 생략 시 `LOG_DEFINITION_TAB_PATTERN`
+ *   매칭 탭 전체를 병렬 로드하여 specs를 합친다(시트는 도메인별 탭에 분산되어 있다).
  *   파서 경고(`warnings`)는 Phase 1 UI에 별도 채널이 없어 drop하지만,
  *   `ParseResult`는 그대로 보존되므로 Phase 2에서 경고 뱃지를 쉽게 추가할 수 있다.
  * - `subscribeSession`: `getSessionState`를 지정 간격으로 폴링. 팝업이 닫히면
@@ -64,10 +69,10 @@ export function createMessagingBackgroundClient(
 
   return {
     async loadSpecs(sheetTitle) {
-      const title = sheetTitle ?? (await pickFirstSheetTitle());
-      const rows = await fetchSheetRows(title);
-      const result = parseSpecRows(rows, { sheetName: title });
-      return result.specs;
+      if (sheetTitle !== undefined) {
+        return loadSpecsFromTab(sheetTitle);
+      }
+      return loadSpecsFromAllDefinitionTabs();
     },
 
     async startRecording(targetEventNames, tabId) {
@@ -136,15 +141,47 @@ export function createMessagingBackgroundClient(
   };
 }
 
+/** 단일 탭 로드 — 명시적으로 `sheetTitle`이 주어진 경우(향후 탭 선택 UI 경로). */
+async function loadSpecsFromTab(sheetTitle: string): Promise<EventSpec[]> {
+  const rows = await fetchSheetRows(sheetTitle);
+  return parseSpecRows(rows, { sheetName: sheetTitle }).specs;
+}
+
 /**
- * 단일 시트 Phase 1 기본값 — 첫 번째 탭을 사용한다. Phase 2에서 사용자 선택 UI가
- * 붙으면 `sheetTitleAtom` 등으로 이 분기가 더 이상 필요 없어진다.
+ * 로그 정의 탭 전체 집계 — Phase 1 기본값.
+ *
+ * 시트에는 컨벤션·가이드·요약 탭이 앞쪽에 섞여있어 `tabs[0]`만 읽으면 스펙을
+ * 0건만 얻는 버그가 있었다. `LOG_DEFINITION_TAB_PATTERN`으로 실제 도메인별
+ * 로그 정의 탭만 골라 **병렬로** 내려받은 뒤 specs를 합친다. listTabs가
+ * 이미 OAuth 토큰을 확보한 뒤이므로 이후 fetchRows들은 silent 토큰으로 진행된다.
+ *
+ * 성능·편의 개선 경로(Phase 2): 탭 선택 드롭다운, 병렬도 조절, 서버측 필터링.
  */
-async function pickFirstSheetTitle(): Promise<string> {
+async function loadSpecsFromAllDefinitionTabs(): Promise<EventSpec[]> {
   const tabs = await listSheetTabs();
-  const first = tabs[0];
-  if (!first) {
-    throw new Error("스펙 시트에 탭이 없습니다.");
+  const targets = tabs.filter((t) => LOG_DEFINITION_TAB_PATTERN.test(t.title));
+  if (targets.length === 0) {
+    throw new Error(
+      "스펙 시트에서 로그 정의 탭을 찾지 못했습니다. " +
+        "(탭 제목이 'NN. 도메인_신규로그설계' 패턴과 일치하는지 확인해주세요.)",
+    );
   }
-  return first.title;
+  const rowsPerTab = await Promise.all(
+    targets.map((t) => fetchSheetRows(t.title)),
+  );
+  return mergeSpecs(targets, rowsPerTab);
+}
+
+function mergeSpecs(
+  targets: SheetTab[],
+  rowsPerTab: string[][][],
+): EventSpec[] {
+  const all: EventSpec[] = [];
+  for (let i = 0; i < targets.length; i++) {
+    const tab = targets[i]!;
+    const rows = rowsPerTab[i]!;
+    const { specs } = parseSpecRows(rows, { sheetName: tab.title });
+    all.push(...specs);
+  }
+  return all;
 }

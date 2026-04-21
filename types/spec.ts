@@ -44,7 +44,9 @@ export type ParseWarningCode =
   | "missing_event_name"
   | "unknown_event_type"
   | "unknown_log_type"
-  | "param_unparseable_token";
+  | "param_unparseable_token"
+  | "ambiguous_header_resolution"
+  | "no_logtype_boundary";
 
 export interface ParseWarning {
   code: ParseWarningCode;
