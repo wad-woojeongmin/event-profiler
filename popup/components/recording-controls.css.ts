@@ -65,3 +65,10 @@ export const buttonRow = style({
   display: "flex",
   gap: vars.space.sm,
 });
+
+export const guardMessage = style({
+  margin: 0,
+  fontSize: vars.font.size.sm,
+  color: vars.color.textMuted,
+  lineHeight: 1.4,
+});

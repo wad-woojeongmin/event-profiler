@@ -39,8 +39,8 @@ export const loadSpecsAtom = atom(
       set(specsLoadStateAtom, "loaded");
       // 어댑터의 silent→interactive fallback으로 여기까지 왔다면 토큰 보유가 확정이다.
       set(authStatusAtom, "authenticated");
-      // 팝업 재오픈 시 체크박스 복원을 위해 스펙 스냅샷을 캐시에 기록한다.
-      // 캐시 실패는 로드 흐름을 깨지 않도록 조용히 무시한다(복원이 안 될 뿐).
+      // 팝업 재오픈 시 체크박스 복원과 M8 리포트 어셈블러의 스펙 소스 양쪽을 위해
+      // 스펙 스냅샷을 캐시에 기록한다. 캐시 실패는 로드 흐름을 깨지 않도록 silent.
       try {
         await client.setCachedSpecs(specs);
       } catch {
