@@ -1,5 +1,9 @@
 // 녹화 중/녹화 종료 대시보드.
 //
+// 상단: REC 헤더(펄싱 점 + 경과 시간 + 시작 시각)
+// 중단: 카운터 스트립(총 수집 / PASS / FAIL / 중복 / 미수집)
+// 하단: 선택 이벤트 상태 리스트 + 예외 이벤트 테이블
+//
 // 배경 SW가 최종 리포트와 같은 소스로 계산한 `ValidationReport`를 라이브로 받아
 // 상태 카드·선택 스펙별 이슈 요약·예외 이벤트 목록을 보여준다. 리포트 뷰어
 // (`report/viewer/`)와 판정·색 토큰을 맞춘다.
@@ -71,65 +75,52 @@ export function RecordingDashboard() {
     );
   }
 
-  const targetCount = session.targetEventNames.length;
   const capturedTotal = session.capturedCount;
+  const isRecording = phase === "recording";
 
   return (
     <section className={styles.wrapper}>
-      <div className={styles.sectionHeader}>
-        <span className={styles.sectionTitle}>이벤트 검증 현황</span>
-      </div>
-      <div className={styles.metaGrid}>
-        <div className={styles.metaCell}>
-          <span className={styles.metaLabel}>녹화 시작</span>
-          <span className={styles.metaValue}>
+      <div className={styles.recHeader}>
+        <span
+          className={isRecording ? styles.liveDotRecording : styles.liveDotStopped}
+          aria-hidden="true"
+        />
+        <span className={isRecording ? styles.recLabel : styles.recLabelStopped}>
+          {isRecording ? "REC" : "STOP"}
+        </span>
+        <span className={styles.elapsed}>
+          {isRecording ? (
+            <ElapsedTime startedAt={session.session.startedAt} />
+          ) : (
+            formatElapsed(
+              (session.session.endedAt ?? session.session.startedAt) -
+                session.session.startedAt,
+            )
+          )}
+        </span>
+        <div className={styles.recStartMeta}>
+          시작{" "}
+          <span className={styles.recStartClock}>
             {formatClock(session.session.startedAt)}
           </span>
         </div>
-        <div className={styles.metaCell}>
-          <span className={styles.metaLabel}>경과 시간</span>
-          <span className={styles.metaValue}>
-            {phase === "recording" ? (
-              <ElapsedTime startedAt={session.session.startedAt} />
-            ) : (
-              formatElapsed(
-                (session.session.endedAt ?? session.session.startedAt) -
-                  session.session.startedAt,
-              )
-            )}
-          </span>
-        </div>
-        <div className={styles.metaCell}>
-          <span className={styles.metaLabel}>대상 이벤트</span>
-          <span className={styles.metaValue}>{targetCount}개</span>
-        </div>
-        <div className={styles.metaCell}>
-          <span className={styles.metaLabel}>총 수집</span>
-          <span className={styles.metaValue}>{capturedTotal}건</span>
-        </div>
       </div>
 
-      <div className={styles.statsGrid}>
-        <div className={styles.statCardVariants.notCollected}>
-          <span className={styles.statCardLabel}>미수집</span>
-          <span className={styles.statCardValue}>{stats.notCollected}</span>
-        </div>
-        <div className={styles.statCardVariants.fail}>
-          <span className={styles.statCardLabel}>FAIL</span>
-          <span className={styles.statCardValue}>{stats.fail}</span>
-        </div>
-        <div className={styles.statCardVariants.suspectDuplicate}>
-          <span className={styles.statCardLabel}>중복 의심</span>
-          <span className={styles.statCardValue}>{stats.suspectDuplicate}</span>
-        </div>
-        <div className={styles.statCardVariants.pass}>
-          <span className={styles.statCardLabel}>PASS</span>
-          <span className={styles.statCardValue}>{stats.pass}</span>
-        </div>
+      <div className={styles.counterStrip}>
+        <CounterCell label="총 수집" value={capturedTotal} kind="total" />
+        <CounterCell label="PASS" value={stats.pass} kind="pass" />
+        <CounterCell label="FAIL" value={stats.fail} kind="fail" />
+        <CounterCell
+          label="중복"
+          value={stats.suspectDuplicate}
+          kind="warn"
+        />
+        <CounterCell label="미수집" value={stats.notCollected} kind="missing" />
       </div>
 
       <div className={styles.sectionHeader}>
         <span className={styles.sectionTitle}>선택한 이벤트 정의 상태</span>
+        <span className={styles.sectionCount}>{rows.length}</span>
       </div>
       {rows.length === 0 ? (
         <div className={styles.emptyState}>선택된 이벤트가 없습니다.</div>
@@ -142,9 +133,8 @@ export function RecordingDashboard() {
       )}
 
       <div className={styles.sectionHeader}>
-        <span className={styles.sectionTitle}>
-          예외 이벤트 (선택되지 않은 이벤트) · {unexpectedGroups.length}개
-        </span>
+        <span className={styles.sectionTitle}>예외 이벤트</span>
+        <span className={styles.sectionCount}>{unexpectedGroups.length}</span>
       </div>
       <input
         className={styles.searchInput}
@@ -181,6 +171,31 @@ export function RecordingDashboard() {
         </div>
       )}
     </section>
+  );
+}
+
+interface CounterCellProps {
+  label: string;
+  value: number;
+  kind: "total" | "pass" | "fail" | "warn" | "missing";
+}
+
+function CounterCell({ label, value, kind }: CounterCellProps) {
+  const valueClass =
+    kind === "total"
+      ? styles.counterValue
+      : value > 0
+        ? styles.counterValueVariants[kind]
+        : styles.counterValueZero;
+  return (
+    <div
+      className={
+        kind === "total" ? styles.counterCellTotal : styles.counterCell
+      }
+    >
+      <div className={styles.counterLabel}>{label}</div>
+      <div className={valueClass}>{value}</div>
+    </div>
   );
 }
 
@@ -263,7 +278,8 @@ function SpecRow({ row }: { row: SpecRowModel }) {
   const message = row.primaryIssue?.message ?? defaultMessage;
   return (
     <li className={styles.specRow}>
-      <span className={styles.statusBadgeVariants[row.status]}>
+      <span className={styles.statusPillVariants[row.status]}>
+        <span className={styles.statusPillDotVariants[row.status]} />
         {statusLabel(row.status)}
       </span>
       <div className={styles.specMain}>
@@ -284,7 +300,10 @@ function SpecRow({ row }: { row: SpecRowModel }) {
           </span>
         )}
       </div>
-      <span className={styles.specCount}>수집 {row.capturedCount}건</span>
+      <div className={styles.specCountWrap}>
+        <span className={styles.specCountValue}>{row.capturedCount}</span>
+        <span className={styles.specCountUnit}>수집</span>
+      </div>
     </li>
   );
 }

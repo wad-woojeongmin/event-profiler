@@ -2,10 +2,18 @@
 //
 // 상태 배지 색은 리포트 뷰어(`report/viewer/results-table.css.ts`)와 시각적 톤을
 // 맞췄다. 색 값이 바뀌면 양쪽을 함께 수정할 것.
+//
+// REC 헤더 펄스 애니메이션은 녹화 진행 중임을 시각적으로 전달한다. 녹화 종료
+// 상태에서는 펄스를 멈추고 색도 회색으로 가라앉힌다.
 
-import { style, styleVariants } from "@vanilla-extract/css";
+import { keyframes, style, styleVariants } from "@vanilla-extract/css";
 
 import { vars } from "../styles/theme.css.ts";
+
+const pulse = keyframes({
+  "0%, 100%": { opacity: 1 },
+  "50%": { opacity: 0.35 },
+});
 
 // wrapper 자체는 스크롤하지 않는다 — 안쪽 specList/unexpectedBody가 각각
 // overflow를 갖고 필요한 만큼만 잡아먹는다. wrapper가 overflow:auto면 긴 목록이
@@ -14,7 +22,7 @@ export const wrapper = style({
   display: "flex",
   flexDirection: "column",
   gap: vars.space.md,
-  padding: vars.space.lg,
+  padding: vars.space.md,
   flex: 1,
   minHeight: 0,
   overflow: "hidden",
@@ -27,12 +35,147 @@ const staticSection = style({
   flexShrink: 0,
 });
 
+export const recHeader = style([
+  staticSection,
+  {
+    display: "flex",
+    alignItems: "center",
+    gap: vars.space.sm,
+    padding: `${vars.space.sm} ${vars.space.md}`,
+    background: vars.color.bg,
+    border: `1px solid ${vars.color.border}`,
+    borderRadius: vars.radius.md,
+  },
+]);
+
+const liveDotBase = style({
+  width: "8px",
+  height: "8px",
+  borderRadius: "50%",
+  flexShrink: 0,
+});
+
+export const liveDotRecording = style([
+  liveDotBase,
+  {
+    background: vars.color.failSolid,
+    animation: `${pulse} 1.2s ease-in-out infinite`,
+  },
+]);
+
+export const liveDotStopped = style([
+  liveDotBase,
+  { background: vars.color.textSubtle },
+]);
+
+export const recLabel = style({
+  fontSize: vars.font.size.xs,
+  fontWeight: vars.font.weight.bold,
+  color: vars.color.failText,
+  letterSpacing: "0.08em",
+  textTransform: "uppercase",
+});
+
+export const recLabelStopped = style([
+  recLabel,
+  { color: vars.color.textMuted },
+]);
+
+export const elapsed = style({
+  fontFamily: vars.font.mono,
+  fontSize: vars.font.size.lg,
+  fontWeight: vars.font.weight.bold,
+  fontVariantNumeric: "tabular-nums",
+  letterSpacing: "-0.3px",
+  color: vars.color.text,
+});
+
+export const recStartMeta = style({
+  marginLeft: "auto",
+  fontSize: vars.font.size.xs,
+  color: vars.color.textMuted,
+});
+
+export const recStartClock = style({
+  fontFamily: vars.font.mono,
+  color: vars.color.text,
+});
+
+export const counterStrip = style([
+  staticSection,
+  {
+    display: "grid",
+    gridTemplateColumns: "1.2fr repeat(4, 1fr)",
+    background: vars.color.bg,
+    border: `1px solid ${vars.color.border}`,
+    borderRadius: vars.radius.md,
+    overflow: "hidden",
+  },
+]);
+
+const counterCellBase = style({
+  display: "flex",
+  flexDirection: "column",
+  gap: "2px",
+  padding: `${vars.space.sm} ${vars.space.sm}`,
+  borderRight: `1px solid ${vars.color.divider}`,
+  selectors: {
+    "&:last-child": { borderRight: "none" },
+  },
+});
+
+export const counterCell = style([counterCellBase]);
+
+export const counterCellTotal = style([
+  counterCellBase,
+  { background: vars.color.surface },
+]);
+
+export const counterLabel = style({
+  fontSize: "10px",
+  fontWeight: vars.font.weight.bold,
+  color: vars.color.textMuted,
+  letterSpacing: "0.04em",
+  textTransform: "uppercase",
+});
+
+const counterValueBase = style({
+  fontSize: vars.font.size.xl,
+  fontWeight: vars.font.weight.bold,
+  fontVariantNumeric: "tabular-nums",
+  letterSpacing: "-0.5px",
+  lineHeight: 1.1,
+});
+
+export const counterValue = style([
+  counterValueBase,
+  { color: vars.color.text },
+]);
+
+export const counterValueZero = style([
+  counterValueBase,
+  { color: vars.color.textMuted },
+]);
+
+export const counterValueVariants = styleVariants({
+  pass: [counterValueBase, { color: vars.color.passText }],
+  fail: [counterValueBase, { color: vars.color.failText }],
+  warn: [counterValueBase, { color: vars.color.warnText }],
+  missing: [counterValueBase, { color: vars.color.missingText }],
+});
+
 export const sectionTitle = style({
   fontSize: vars.font.size.xs,
   color: vars.color.textMuted,
-  fontWeight: vars.font.weight.medium,
+  fontWeight: vars.font.weight.bold,
   textTransform: "uppercase",
   letterSpacing: "0.04em",
+});
+
+export const sectionCount = style({
+  fontSize: vars.font.size.xs,
+  color: vars.color.textSubtle,
+  fontVariantNumeric: "tabular-nums",
 });
 
 export const sectionHeader = style([
@@ -40,84 +183,9 @@ export const sectionHeader = style([
   {
     display: "flex",
     alignItems: "center",
-    justifyContent: "space-between",
     gap: vars.space.sm,
   },
 ]);
-
-export const metaGrid = style([
-  staticSection,
-  {
-    display: "grid",
-    gridTemplateColumns: "repeat(2, 1fr)",
-    gap: vars.space.sm,
-    fontSize: vars.font.size.sm,
-  },
-]);
-
-export const metaCell = style({
-  display: "flex",
-  flexDirection: "column",
-  gap: "2px",
-});
-
-export const metaLabel = style({
-  fontSize: vars.font.size.xs,
-  color: vars.color.textMuted,
-});
-
-export const metaValue = style({
-  fontWeight: vars.font.weight.bold,
-  color: vars.color.text,
-});
-
-export const statsGrid = style([
-  staticSection,
-  {
-    display: "grid",
-    gridTemplateColumns: "repeat(2, 1fr)",
-    gap: vars.space.sm,
-    "@media": {
-      "(min-width: 480px)": {
-        gridTemplateColumns: "repeat(4, 1fr)",
-      },
-    },
-  },
-]);
-
-const statCardBase = style({
-  display: "flex",
-  flexDirection: "column",
-  gap: "2px",
-  padding: vars.space.sm,
-  border: "1px solid",
-  borderRadius: vars.radius.md,
-  background: vars.color.bg,
-});
-
-export const statCardVariants = styleVariants({
-  notCollected: [
-    statCardBase,
-    { borderColor: vars.color.border, background: vars.color.surface },
-  ],
-  fail: [statCardBase, { borderColor: "#fecaca", background: "#fef2f2" }],
-  suspectDuplicate: [
-    statCardBase,
-    { borderColor: "#fed7aa", background: "#fff7ed" },
-  ],
-  pass: [statCardBase, { borderColor: "#a7f3d0", background: "#ecfdf5" }],
-});
-
-export const statCardLabel = style({
-  fontSize: vars.font.size.xs,
-  color: vars.color.textMuted,
-});
-
-export const statCardValue = style({
-  fontSize: vars.font.size.lg,
-  fontWeight: vars.font.weight.bold,
-  color: vars.color.text,
-});
 
 // 선택한 이벤트 정의 상태 리스트 — 대시보드에서 유일하게 flex로 늘어나는 섹션.
 // 남는 세로 공간을 채우되, 최대로 늘어났을 때만 내부 스크롤이 생긴다. 스펙이
@@ -125,61 +193,75 @@ export const statCardValue = style({
 export const specList = style({
   display: "flex",
   flexDirection: "column",
-  gap: vars.space.xs,
   border: `1px solid ${vars.color.border}`,
   borderRadius: vars.radius.md,
   flex: "1 1 auto",
   minHeight: 0,
   overflowY: "auto",
+  background: vars.color.bg,
 });
 
 export const specRow = style({
   display: "grid",
   gridTemplateColumns: "auto 1fr auto",
-  alignItems: "center",
+  alignItems: "flex-start",
   gap: vars.space.sm,
-  padding: vars.space.sm,
-  borderBottom: `1px solid ${vars.color.border}`,
-  background: vars.color.bg,
+  padding: `${vars.space.sm} ${vars.space.md}`,
+  borderBottom: `1px solid ${vars.color.divider}`,
   selectors: {
     "&:last-child": { borderBottom: "none" },
   },
 });
 
-const statusBadgeBase = style({
+const statusPillBase = style({
   display: "inline-flex",
   alignItems: "center",
-  justifyContent: "center",
-  minWidth: "60px",
-  padding: `2px ${vars.space.sm}`,
-  borderRadius: vars.radius.sm,
+  gap: "5px",
+  height: "18px",
+  padding: "0 7px 0 6px",
+  borderRadius: "999px",
   fontSize: vars.font.size.xs,
   fontWeight: vars.font.weight.bold,
-  border: "1px solid",
+  letterSpacing: "0.01em",
+  fontVariantNumeric: "tabular-nums",
   whiteSpace: "nowrap",
+  marginTop: "1px",
 });
 
-export const statusBadgeVariants = styleVariants({
+export const statusPillVariants = styleVariants({
   pass: [
-    statusBadgeBase,
-    { background: "#ecfdf5", borderColor: "#a7f3d0", color: "#047857" },
+    statusPillBase,
+    { background: vars.color.passSoft, color: vars.color.passText },
   ],
   fail: [
-    statusBadgeBase,
-    { background: "#fef2f2", borderColor: "#fecaca", color: "#b91c1c" },
-  ],
-  not_collected: [
-    statusBadgeBase,
-    {
-      background: vars.color.surface,
-      borderColor: vars.color.border,
-      color: vars.color.textMuted,
-    },
+    statusPillBase,
+    { background: vars.color.failSoft, color: vars.color.failText },
   ],
   suspect_duplicate: [
-    statusBadgeBase,
-    { background: "#fff7ed", borderColor: "#fed7aa", color: "#c2410c" },
+    statusPillBase,
+    { background: vars.color.warnSoft, color: vars.color.warnText },
   ],
+  not_collected: [
+    statusPillBase,
+    { background: vars.color.missingSoft, color: vars.color.missingText },
+  ],
+});
+
+const statusPillDotBase = style({
+  width: "6px",
+  height: "6px",
+  borderRadius: "50%",
+  flexShrink: 0,
+});
+
+export const statusPillDotVariants = styleVariants({
+  pass: [statusPillDotBase, { background: vars.color.passSolid }],
+  fail: [statusPillDotBase, { background: vars.color.failSolid }],
+  suspect_duplicate: [
+    statusPillDotBase,
+    { background: vars.color.warnSolid },
+  ],
+  not_collected: [statusPillDotBase, { background: vars.color.missingSolid }],
 });
 
 export const specMain = style({
@@ -190,17 +272,19 @@ export const specMain = style({
 });
 
 export const specTitle = style({
-  fontWeight: vars.font.weight.medium,
+  fontWeight: vars.font.weight.bold,
   color: vars.color.text,
   whiteSpace: "nowrap",
   overflow: "hidden",
   textOverflow: "ellipsis",
   fontSize: vars.font.size.sm,
+  fontFamily: vars.font.mono,
+  letterSpacing: "-0.1px",
 });
 
 export const specSubtitle = style({
   fontSize: vars.font.size.xs,
-  color: vars.color.textMuted,
+  color: vars.color.textSubtle,
   fontFamily: vars.font.mono,
   whiteSpace: "nowrap",
   overflow: "hidden",
@@ -217,17 +301,32 @@ export const specMessage = style({
 });
 
 export const specMessageFail = style({
-  color: "#b91c1c",
+  color: vars.color.failText,
 });
 
 export const specMessageWarn = style({
-  color: "#c2410c",
+  color: vars.color.warnText,
 });
 
-export const specCount = style({
-  fontSize: vars.font.size.xs,
-  color: vars.color.textMuted,
-  whiteSpace: "nowrap",
+export const specCountWrap = style({
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "flex-end",
+  gap: "2px",
+  flexShrink: 0,
+});
+
+export const specCountValue = style({
+  fontSize: vars.font.size.md,
+  fontWeight: vars.font.weight.bold,
+  color: vars.color.text,
+  fontVariantNumeric: "tabular-nums",
+  lineHeight: 1,
+});
+
+export const specCountUnit = style({
+  fontSize: "10px",
+  color: vars.color.textSubtle,
 });
 
 export const unexpectedTable = style([
@@ -239,6 +338,7 @@ export const unexpectedTable = style([
     border: `1px solid ${vars.color.border}`,
     borderRadius: vars.radius.md,
     overflow: "hidden",
+    background: vars.color.bg,
   },
 ]);
 
@@ -257,8 +357,11 @@ export const unexpectedHeader = style({
   gap: vars.space.sm,
   padding: `${vars.space.xs} ${vars.space.sm}`,
   background: vars.color.surface,
-  fontSize: vars.font.size.xs,
+  fontSize: "10px",
   color: vars.color.textMuted,
+  fontWeight: vars.font.weight.bold,
+  letterSpacing: "0.04em",
+  textTransform: "uppercase",
   borderBottom: `1px solid ${vars.color.border}`,
 });
 
@@ -268,7 +371,7 @@ export const unexpectedRow = style({
   gap: vars.space.sm,
   padding: `${vars.space.xs} ${vars.space.sm}`,
   fontSize: vars.font.size.xs,
-  borderBottom: `1px solid ${vars.color.border}`,
+  borderBottom: `1px solid ${vars.color.divider}`,
   background: vars.color.bg,
   selectors: {
     "&:last-child": { borderBottom: "none" },
@@ -287,12 +390,18 @@ export const unexpectedCellMono = style([
   { fontFamily: vars.font.mono },
 ]);
 
-export const emptyState = style({
-  padding: vars.space.lg,
-  fontSize: vars.font.size.sm,
-  color: vars.color.textMuted,
-  textAlign: "center",
-});
+export const emptyState = style([
+  staticSection,
+  {
+    padding: vars.space.lg,
+    fontSize: vars.font.size.sm,
+    color: vars.color.textMuted,
+    textAlign: "center",
+    background: vars.color.bg,
+    border: `1px solid ${vars.color.border}`,
+    borderRadius: vars.radius.md,
+  },
+]);
 
 export const searchInput = style([
   staticSection,

@@ -17,12 +17,15 @@ import {
 import {
   hydrateAuthStatusAtom,
   hydrateSpecsFromCacheAtom,
+  specsAtom,
 } from "./atoms/specs-atoms.ts";
 import { hydrateActiveTabAtom } from "./atoms/tab-atoms.ts";
+import { AppHeader } from "./components/app-header.tsx";
 import { RecordingControls } from "./components/recording-controls.tsx";
 import { RecordingDashboard } from "./components/recording-dashboard.tsx";
 import { SettingsSection } from "./components/settings-section.tsx";
 import { SpecSelector } from "./components/spec-selector.tsx";
+import { SpecsContextHeader } from "./components/specs-context-header.tsx";
 import { UnsupportedTabBanner } from "./components/unsupported-tab-banner.tsx";
 import type { BackgroundClient } from "./ports/background-client.ts";
 
@@ -39,6 +42,7 @@ export function PopupApp({ client }: PopupAppProps) {
       <AuthBridge />
       <SpecsBridge />
       <LiveReportBridge />
+      <AppHeader />
       <PhaseLayout />
     </Provider>
   );
@@ -46,15 +50,20 @@ export function PopupApp({ client }: PopupAppProps) {
 
 /**
  * phase 기준 화면 분기.
- * - idle: 설정 + 2칼럼 선택 + 지원 탭 배너 + 녹화 시작 푸터.
+ * - idle + 스펙 미로드: Connect 화면(SettingsSection)만 단독 노출.
+ * - idle + 스펙 로드됨: 컨텍스트 헤더 + 2칼럼 선택 + 지원 탭 배너 + 녹화 시작 푸터.
  * - recording | recording_done: 대시보드 + 제어 푸터. 설정은 숨긴다.
  */
 function PhaseLayout() {
   const phase = useAtomValue(recordingPhaseAtom);
+  const specs = useAtomValue(specsAtom);
   if (phase === "idle") {
+    if (specs.length === 0) {
+      return <SettingsSection />;
+    }
     return (
       <>
-        <SettingsSection />
+        <SpecsContextHeader />
         <SpecSelector />
         <UnsupportedTabBanner />
         <RecordingControls />
