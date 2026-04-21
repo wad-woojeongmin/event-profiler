@@ -131,12 +131,17 @@ export default defineBackground(() => {
   });
 
   onMessage("getValidationSnapshot", async () => {
-    // 최종 리포트와 동일한 입력(스펙 캐시 + 현재 세션 이벤트 + defaultRules)을 써
-    // "라이브 대시보드가 보여준 상태"와 "최종 리포트 상태"가 어긋나지 않게 한다.
+    // 최종 리포트와 동일한 입력(사용자가 선택한 스펙 + 현재 세션 이벤트 + defaultRules)을
+    // 써서 "라이브 대시보드 상태"와 "최종 리포트 상태"가 어긋나지 않게 한다.
+    // 특히 미수집 카드에 선택하지 않은 스펙이 섞여 들어가는 과집계를 막으려면
+    // `report-assembler.ts`와 동일한 타깃 필터를 여기서도 적용해야 한다.
     const state = await controller.getState();
     if (!state.session) return null;
-    const specs = await specsCacheReader.read();
-    if (!specs || specs.length === 0) return null;
+    const allSpecs = await specsCacheReader.read();
+    if (!allSpecs || allSpecs.length === 0) return null;
+    const targetSet = new Set(state.targetEventNames);
+    const specs = allSpecs.filter((s) => targetSet.has(s.amplitudeEventName));
+    if (specs.length === 0) return null;
     const captured = await controller.listCurrentEvents();
     return validate(
       specs,
