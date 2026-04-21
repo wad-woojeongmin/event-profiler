@@ -6,6 +6,7 @@
 // - logType: 별도 컬럼이지만 항상 수집되는 분류 키
 // - objectContainer / objectType: 시트 원본 헤더명. 내부에서는 sectionName/actionName으로
 //   매핑되지만 웹앱이 원본 이름 그대로 쏘는 케이스가 있어 동의어로 함께 허용한다.
+// - object: 이벤트 대상 식별 값을 실어 보내는 분류 키(base property 아님).
 export const TAXONOMY_PARAM_KEYS: readonly string[] = [
   "pageName",
   "sectionName",
@@ -14,4 +15,5 @@ export const TAXONOMY_PARAM_KEYS: readonly string[] = [
   "logType",
   "objectContainer",
   "objectType",
+  "object",
 ];

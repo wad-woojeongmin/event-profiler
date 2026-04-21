@@ -15,6 +15,12 @@ import { TAXONOMY_PARAM_KEYS } from "@/shared/taxonomy-param-keys.ts";
 import { formatClock } from "./format.ts";
 import * as styles from "./event-detail.css.ts";
 
+// "수집됨(actual)" 열에서 감출 키 집합.
+// base property(앱 환경·유입경로·UTM·eventTimeStamp 등)는 모든 이벤트에 동일하게
+// 실려오는 보일러플레이트라 스펙 비교에 시각적 잡음만 준다. 2열 비교의 포커스는
+// "스펙이 요구한 params"와 "그걸 실제로 실었는가"에 있으므로 이 키들은 감춘다.
+const HIDDEN_BASE_KEYS: ReadonlySet<string> = new Set(BASE_EVENT_PARAM_KEYS);
+
 interface Props {
   result: ValidationResult;
   screenshotDataUrls: Record<string, string>;
@@ -86,17 +92,19 @@ export function EventDetail({ result }: Props) {
           <div className={styles.colTitle}>수집됨 (actual)</div>
           <div className={styles.colBody}>
             <SpecLine k="event" v={spec.amplitudeEventName} />
-            {Array.from(actualParamKeys).map((p) => {
-              const sample = firstSampleValue(captured, p);
-              return (
-                <SpecLine
-                  key={p}
-                  k={p}
-                  v={sample}
-                  extra={!knownToSpec.has(p)}
-                />
-              );
-            })}
+            {Array.from(actualParamKeys)
+              .filter((p) => !HIDDEN_BASE_KEYS.has(p))
+              .map((p) => {
+                const sample = firstSampleValue(captured, p);
+                return (
+                  <SpecLine
+                    key={p}
+                    k={p}
+                    v={sample}
+                    extra={!knownToSpec.has(p)}
+                  />
+                );
+              })}
             {actualParamKeys.size === 0 && (
               <SpecLine k="params" v="(수집되지 않음)" />
             )}
