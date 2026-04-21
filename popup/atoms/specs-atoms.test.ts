@@ -10,6 +10,7 @@ import {
   authStatusAtom,
   authenticateAtom,
   hydrateAuthStatusAtom,
+  hydrateSpecsFromCacheAtom,
   loadSpecsAtom,
   specsAtom,
   specsErrorAtom,
@@ -106,6 +107,28 @@ describe("hydrateAuthStatusAtom", () => {
     client.setHasCachedToken(false);
     await store.set(hydrateAuthStatusAtom);
     expect(store.get(authStatusAtom)).toBe("idle");
+  });
+});
+
+describe("스펙 캐시 복원", () => {
+  it("loadSpecs 성공 시 캐시에 스냅샷을 기록한다", async () => {
+    client.setSpecs([sampleSpec]);
+    await store.set(loadSpecsAtom);
+    expect(await client.getCachedSpecs()).toEqual([sampleSpec]);
+  });
+
+  it("hydrateSpecsFromCache는 캐시가 있으면 specsAtom을 채우고 loaded로 전이한다", async () => {
+    client.setCachedSpecsValue([sampleSpec]);
+    await store.set(hydrateSpecsFromCacheAtom);
+    expect(store.get(specsAtom)).toEqual([sampleSpec]);
+    expect(store.get(specsLoadStateAtom)).toBe("loaded");
+  });
+
+  it("캐시가 비어있으면 상태를 그대로 둔다", async () => {
+    client.setCachedSpecsValue(null);
+    await store.set(hydrateSpecsFromCacheAtom);
+    expect(store.get(specsAtom)).toEqual([]);
+    expect(store.get(specsLoadStateAtom)).toBe("idle");
   });
 });
 

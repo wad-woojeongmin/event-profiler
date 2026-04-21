@@ -39,12 +39,37 @@ export const loadSpecsAtom = atom(
       set(specsLoadStateAtom, "loaded");
       // 어댑터의 silent→interactive fallback으로 여기까지 왔다면 토큰 보유가 확정이다.
       set(authStatusAtom, "authenticated");
+      // 팝업 재오픈 시 체크박스 복원을 위해 스펙 스냅샷을 캐시에 기록한다.
+      // 캐시 실패는 로드 흐름을 깨지 않도록 조용히 무시한다(복원이 안 될 뿐).
+      try {
+        await client.setCachedSpecs(specs);
+      } catch {
+        // noop
+      }
     } catch (err) {
       set(specsLoadStateAtom, "error");
       set(specsErrorAtom, toErrorMessage(err));
     }
   },
 );
+
+/**
+ * 팝업 마운트 시 마지막으로 로드된 스펙 스냅샷을 캐시에서 읽어 UI를 복구한다.
+ * 시트 재요청 없이 체크박스가 즉시 렌더되며, 사용자는 최신화가 필요할 때만
+ * "스펙 불러오기"를 다시 누르면 된다. 캐시가 비어있거나 조회 실패면 no-op.
+ */
+export const hydrateSpecsFromCacheAtom = atom(null, async (get, set) => {
+  const client = requireBackgroundClient(get(backgroundClientAtom));
+  try {
+    const cached = await client.getCachedSpecs();
+    if (cached && cached.length > 0) {
+      set(specsAtom, cached);
+      set(specsLoadStateAtom, "loaded");
+    }
+  } catch {
+    // silent 실패 — 사용자가 "스펙 불러오기"로 복구.
+  }
+});
 
 /**
  * 팝업 마운트 시 로그인 상태를 복구한다. Chrome 팝업은 OAuth 창이 열리는 순간

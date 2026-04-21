@@ -10,7 +10,10 @@ import "./styles/reset.css.ts";
 
 import { backgroundClientAtom } from "./atoms/client-atom.ts";
 import { hydrateSessionAtom } from "./atoms/recording-atoms.ts";
-import { hydrateAuthStatusAtom } from "./atoms/specs-atoms.ts";
+import {
+  hydrateAuthStatusAtom,
+  hydrateSpecsFromCacheAtom,
+} from "./atoms/specs-atoms.ts";
 import { hydrateActiveTabAtom } from "./atoms/tab-atoms.ts";
 import { RecordingControls } from "./components/recording-controls.tsx";
 import { SettingsSection } from "./components/settings-section.tsx";
@@ -29,6 +32,7 @@ export function PopupApp({ client }: PopupAppProps) {
       <SessionBridge />
       <TabBridge />
       <AuthBridge />
+      <SpecsBridge />
       <SettingsSection />
       <SpecList />
       <UnsupportedTabBanner />
@@ -95,6 +99,18 @@ function TabBridge() {
  */
 function AuthBridge() {
   const hydrate = useSetAtom(hydrateAuthStatusAtom);
+  useEffect(() => {
+    void hydrate();
+  }, [hydrate]);
+  return null;
+}
+
+/**
+ * 팝업 마운트 시 `local:specsCache`에서 마지막 스펙 스냅샷을 복구한다. 시트 재요청
+ * 없이 체크박스가 즉시 복원되므로 녹화 중 팝업을 껐다 켜도 대상 리스트가 유지된다.
+ */
+function SpecsBridge() {
+  const hydrate = useSetAtom(hydrateSpecsFromCacheAtom);
   useEffect(() => {
     void hydrate();
   }, [hydrate]);
