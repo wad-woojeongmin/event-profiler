@@ -125,6 +125,11 @@ export default defineBackground(() => {
     return controller.getState();
   });
 
+  onMessage("clearSession", async () => {
+    await controller.clearSession();
+    await refreshBadge();
+  });
+
   onMessage("getValidationSnapshot", async () => {
     // 최종 리포트와 동일한 입력(스펙 캐시 + 현재 세션 이벤트 + defaultRules)을 써
     // "라이브 대시보드가 보여준 상태"와 "최종 리포트 상태"가 어긋나지 않게 한다.

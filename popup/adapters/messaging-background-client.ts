@@ -102,6 +102,10 @@ export function createMessagingBackgroundClient(
       await sendMessage("stopRecording", undefined);
     },
 
+    async clearSession() {
+      await sendMessage("clearSession", undefined);
+    },
+
     async getSessionState(): Promise<RecordingSessionState> {
       return sendMessage("getSessionState", undefined);
     },

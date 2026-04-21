@@ -57,6 +57,13 @@ export interface ExtensionProtocol {
   generateReport(): void;
 
   /**
+   * M4 → M3. 현재 세션·이벤트·스크린샷을 모두 지워 idle 상태로 되돌린다.
+   * 녹화 종료 후 "다른 이벤트를 선택해 다시 녹화"를 위해 선택 UI로 돌아갈 때 사용.
+   * 이미 세션이 없으면 no-op.
+   */
+  clearSession(): void;
+
+  /**
    * M4 → M3. 세션 진행 중 라이브 검증 스냅샷.
    *
    * 최종 `generateReport`가 쓰는 입력(스펙 캐시 + 현재 세션 이벤트 + defaultRules)과
