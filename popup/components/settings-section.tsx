@@ -100,6 +100,14 @@ export function SettingsSection() {
           </div>
         )}
       </section>
+      {/*
+        디자인에는 로드 완료 시 "이벤트 선택으로 →"로 바뀌는 CTA가 있지만,
+        실제 앱에서는 specsAtom이 비지 않는 순간 PhaseLayout이 곧바로
+        SpecSelector 화면으로 자동 전환한다. 그래서 이 버튼은 "아직 로드 전"
+        이라는 상태 표시용으로만 남고 활성 상태가 렌더될 일이 없다.
+        같은 이유로 시트 카드 안의 "✓ N개 스펙 로드 완료" 인라인 피드백도
+        화면에 나타날 타이밍이 없어 생략했다.
+      */}
       <footer className={styles.footer}>
         <button type="button" className={styles.footerButton} disabled>
           스펙 로드 대기
