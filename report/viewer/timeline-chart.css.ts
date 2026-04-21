@@ -235,12 +235,77 @@ export const marker = style({
   width: "3px",
   height: "20px",
   borderRadius: "1px",
+  cursor: "pointer",
+  // 클릭 타겟이 3px로 너무 얇아 마우스로 잡기 힘들다. 투명 ::before로 양옆 5px씩 확장.
+  selectors: {
+    "&::before": {
+      content: '""',
+      position: "absolute",
+      top: "-4px",
+      bottom: "-4px",
+      left: "-5px",
+      right: "-5px",
+    },
+  },
 });
 
 export const markerKind = styleVariants({
   pass: [marker, { background: vars.color.passSolid }],
   warn: [marker, { background: vars.color.warnSolid }],
   fail: [marker, { background: vars.color.failSolid }],
+});
+
+// 훅오버 시 타임라인 위로 띄우는 스크린샷 미리보기. createPortal로 body 직하에
+// 렌더해서 scrollArea의 overflow에 막히지 않게 한다.
+export const previewRoot = style({
+  position: "fixed",
+  width: "480px",
+  maxWidth: "80vw",
+  pointerEvents: "none",
+  zIndex: 9999,
+  background: vars.color.surface,
+  border: `1px solid ${vars.color.borderStrong}`,
+  borderRadius: vars.radius.card,
+  overflow: "hidden",
+  boxShadow: vars.shadow.md,
+});
+
+export const previewImg = style({
+  display: "block",
+  width: "100%",
+  height: "auto",
+});
+
+export const previewCaption = style({
+  padding: "6px 10px",
+  borderTop: `1px solid ${vars.color.divider}`,
+  background: vars.color.surfaceAlt,
+  display: "flex",
+  flexDirection: "column",
+  gap: "1px",
+});
+
+export const previewNameGtag = style({
+  fontFamily: vars.font.mono,
+  fontSize: vars.font.size.xs,
+  fontWeight: vars.font.weight.bold,
+  color: vars.color.text,
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+});
+
+export const previewNameRaw = style({
+  fontFamily: vars.font.mono,
+  fontSize: "10.5px",
+  color: vars.color.textMuted,
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+});
+
+export const hoverable = style({
+  cursor: "pointer",
 });
 
 export const empty = style({
