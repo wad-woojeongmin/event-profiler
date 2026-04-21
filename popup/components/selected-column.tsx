@@ -43,14 +43,16 @@ export function SelectedColumn() {
           해제
         </button>
       </div>
-      <input
-        className={styles.searchInput}
-        type="search"
-        placeholder="검색"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        disabled={selected.size === 0}
-      />
+      <div className={styles.searchPad}>
+        <input
+          className={styles.searchInput}
+          type="search"
+          placeholder="검색"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          disabled={selected.size === 0}
+        />
+      </div>
       {filtered.length === 0 ? (
         <div className={styles.list}>
           <div className={styles.emptyState}>
