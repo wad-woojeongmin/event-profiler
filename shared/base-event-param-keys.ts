@@ -7,7 +7,8 @@
 // - 앱 환경: isNativeApp / deviceType / buildVersion / nativeAppVersion / deviceId
 // - 유입경로: entryHost / isExternalEntry / referrerUrl / referrerDomain
 // - UTM: source / medium / campaign / content / term
-// - 기타: object / eventTimeStamp (기존 GA 분류)
+// - 기타: eventTimeStamp
+// (`object`는 taxonomy 계열로 분리 — `TAXONOMY_PARAM_KEYS` 참조)
 export const BASE_EVENT_PARAM_KEYS: readonly string[] = [
   "isNativeApp",
   "deviceType",
@@ -23,6 +24,5 @@ export const BASE_EVENT_PARAM_KEYS: readonly string[] = [
   "campaign",
   "content",
   "term",
-  "object",
   "eventTimeStamp",
 ];
