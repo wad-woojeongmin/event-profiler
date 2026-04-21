@@ -81,7 +81,7 @@ export const columnAction = style({
 export const columnActionPrimary = style([
   columnAction,
   {
-    color: vars.color.primary,
+    color: vars.color.primaryLinkText,
     fontWeight: vars.font.weight.bold,
   },
 ]);
