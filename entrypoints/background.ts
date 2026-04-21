@@ -114,9 +114,12 @@ export default defineBackground(() => {
   });
 
   onMessage("generateReport", async () => {
-    // Phase 1: ValidationReport + screenshotDataUrls를 `local:reportData`에 write.
-    // 뷰어 UI는 M4 popup이 같은 키를 구독해 렌더(다운로드는 Phase 2).
-    await reportAssembler.run();
+    // Phase 2 뷰어 모드: 어셈블이 `local:reportData`에 write한 직후 뷰어 탭을 연다.
+    // 세션/스펙 미충족 시 어셈블러가 `null`을 반환하며, 이 경우 탭을 열지 않는다
+    // (m8-report.md:110 "명확한 에러(또는 no-op)").
+    const data = await reportAssembler.run();
+    if (!data) return;
+    await browser.tabs.create({ url: browser.runtime.getURL("/report.html") });
   });
 });
 

@@ -20,7 +20,13 @@ import type {
  * (시간 고정 테스트가 필요하면 `vi.useFakeTimers()`로 랩핑.)
  *
  * ### 매칭
- * - 키: `CapturedEvent.eventName === EventSpec.amplitudeEventName` 완전 일치
+ * - 키: `canonicalEventName(captured) === EventSpec.amplitudeEventName` 완전 일치
+ * - `canonicalEventName`은 `params.pageName/sectionName/actionName/eventType`을 `_`로 이어
+ *   스펙 시트 컨벤션(docs/05-sheet-spec.md)의 `amplitudeEventName`을 재구성한다. 웹앱이
+ *   Amplitude에 실제로 쏘는 `eventName`은 `humanEventName` 포맷(`click__foo`)이라 스펙의
+ *   `amplitudeEventName`(`page_section_action_click`)과 바로 매칭되지 않기 때문.
+ *   params가 비어있으면 원본 `eventName`으로 폴백 — 테스트 픽스처 및 웹앱이 이미 canonical
+ *   이름을 쏘는 구현까지 회귀 없이 지원된다.
  * - 같은 이벤트가 여러 번 수집되면 해당 스펙의 `captured[]`에 모두 누적
  *
  * ### R5 예외 이벤트 특별 처리
@@ -56,7 +62,7 @@ export function validate(
   rules: ValidationRule[],
 ): ValidationReport {
   const targetSet: ReadonlySet<string> = new Set(targetEventNames);
-  const capturedByName = groupByEventName(captured);
+  const capturedByName = groupByCanonicalName(captured);
 
   const results: ValidationResult[] = specs.map((spec) => {
     const matched = capturedByName.get(spec.amplitudeEventName) ?? [];
@@ -76,7 +82,10 @@ export function validate(
   });
 
   // R5 — 코어 전담. 규칙 플러그인과 결과 포맷이 달라(CapturedEvent[]) 여기서 직접 집계.
-  const unexpected = captured.filter((e) => !targetSet.has(e.eventName));
+  // 매칭 키와 같은 canonical 이름으로 판정해야 "매칭은 됐는데 unexpected에도 뜸"이 안 생긴다.
+  const unexpected = captured.filter(
+    (e) => !targetSet.has(canonicalEventName(e)),
+  );
 
   return {
     sessionId: session.id,
@@ -89,21 +98,53 @@ export function validate(
 }
 
 /**
- * 이벤트명 기준 버킷 인덱스 생성.
+ * 이벤트명 기준 버킷 인덱스 생성. 키는 `canonicalEventName`.
  *
  * 순진한 구현(`specs.map(…captured.filter…)`)의 O(N×M)을 O(N+M)로 낮춰
  * 1000 × 100 규모(≤500ms) 성능 기준을 충족한다.
  */
-function groupByEventName(
+function groupByCanonicalName(
   captured: CapturedEvent[],
 ): Map<string, CapturedEvent[]> {
   const map = new Map<string, CapturedEvent[]>();
   for (const event of captured) {
-    const bucket = map.get(event.eventName);
+    const key = canonicalEventName(event);
+    const bucket = map.get(key);
     if (bucket) bucket.push(event);
-    else map.set(event.eventName, [event]);
+    else map.set(key, [event]);
   }
   return map;
+}
+
+/**
+ * 캡처된 이벤트의 canonical amplitude 이름을 재구성한다.
+ *
+ * 캐치테이블 로그 스펙 컨벤션(docs/05-sheet-spec.md): `amplitudeEventName`은
+ * `[pageName, sectionName, actionName, eventType]`을 빈 값 제외 후 `_`로 join.
+ * 웹앱이 params에 이 네 필드를 실어 보내므로, 여기서 되집어 스펙의 key로 정렬한다.
+ *
+ * 연속 중복(예: 웹앱이 sectionName과 actionName을 같은 값으로 중복 채우는 케이스)은
+ * 인접 dedup으로 흡수한다. 스펙 시트는 둘이 같을 때 한쪽만 쓰는 관행이다.
+ * 재구성 결과가 공백이거나 한 토큰뿐이면 원본 `eventName`으로 폴백 — 테스트 픽스처나
+ * 이미 canonical 이름을 쏘는 웹앱까지 회귀 없이 지원.
+ */
+export function canonicalEventName(e: CapturedEvent): string {
+  const p = e.params;
+  const raw = [
+    asNonEmpty(p["pageName"]),
+    asNonEmpty(p["sectionName"]),
+    asNonEmpty(p["actionName"]),
+    asNonEmpty(p["eventType"]),
+  ].filter((x): x is string => x !== null);
+  const parts: string[] = [];
+  for (const tok of raw) {
+    if (parts[parts.length - 1] !== tok) parts.push(tok);
+  }
+  return parts.length >= 2 ? parts.join("_") : e.eventName;
+}
+
+function asNonEmpty(v: unknown): string | null {
+  return typeof v === "string" && v.length > 0 ? v : null;
 }
 
 /**

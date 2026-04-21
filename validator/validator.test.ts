@@ -180,4 +180,100 @@ describe("validate — 통합", () => {
     expect(report.results).toHaveLength(specCount);
     expect(report.stats.totalCaptured).toBe(eventCount);
   });
+
+  it("canonical 이름 재구성 — 캡처된 params로부터 amplitudeEventName을 조립해 매칭", () => {
+    // 실제 웹앱은 `humanEventName`(view__shopDetail)을 `eventName`으로 쏘고,
+    // params에 pageName/sectionName/actionName/eventType을 실어 보낸다. 이 조합이
+    // 스펙 시트의 `amplitudeEventName`(shopDetail_view)와 일치해야 한다.
+    const specs = [
+      makeSpec({ amplitudeEventName: "shopDetail_view", params: [] }),
+      makeSpec({
+        amplitudeEventName: "main_topGNB_searchInput_click",
+        params: [],
+      }),
+    ];
+    const events = [
+      makeEvent({
+        id: "e1",
+        eventName: "view__shopDetail",
+        params: {
+          pageName: "shopDetail",
+          sectionName: "",
+          actionName: "",
+          eventType: "view",
+          logType: "screen",
+        },
+      }),
+      makeEvent({
+        id: "e2",
+        eventName: "click__searchInput",
+        params: {
+          pageName: "main",
+          sectionName: "topGNB",
+          actionName: "searchInput",
+          eventType: "click",
+        },
+      }),
+    ];
+    const report = validate(
+      specs,
+      events,
+      ["shopDetail_view", "main_topGNB_searchInput_click"],
+      makeSession(),
+      defaultRules,
+    );
+    const byName = new Map(
+      report.results.map((r) => [r.spec.amplitudeEventName, r]),
+    );
+    expect(byName.get("shopDetail_view")?.status).toBe("pass");
+    expect(byName.get("main_topGNB_searchInput_click")?.status).toBe("pass");
+    expect(report.unexpected).toEqual([]);
+  });
+
+  it("canonical 이름 재구성 — sectionName과 actionName이 같으면 인접 중복을 제거", () => {
+    // 웹앱이 section과 action을 같은 값으로 중복 채우는 실제 케이스 대응.
+    const specs = [
+      makeSpec({ amplitudeEventName: "mainSearch_themeBanners_impr" }),
+    ];
+    const events = [
+      makeEvent({
+        eventName: "impr__themeBanners",
+        params: {
+          pageName: "mainSearch",
+          sectionName: "themeBanners",
+          actionName: "themeBanners",
+          eventType: "impr",
+        },
+      }),
+    ];
+    const report = validate(
+      specs,
+      events,
+      ["mainSearch_themeBanners_impr"],
+      makeSession(),
+      defaultRules,
+    );
+    expect(report.results[0]?.status).toBe("pass");
+    expect(report.unexpected).toEqual([]);
+  });
+
+  it("canonical 재구성 불가능한 이벤트(예: Amplitude Page Viewed)는 원본 eventName으로 폴백하여 unexpected에 남는다", () => {
+    const specs = [makeSpec({ amplitudeEventName: "shopDetail_view" })];
+    const events = [
+      makeEvent({
+        eventName: "[Amplitude] Page Viewed",
+        params: {}, // 관련 필드 없음
+      }),
+    ];
+    const report = validate(
+      specs,
+      events,
+      ["shopDetail_view"],
+      makeSession(),
+      defaultRules,
+    );
+    expect(report.results[0]?.status).toBe("not_collected");
+    expect(report.unexpected).toHaveLength(1);
+    expect(report.unexpected[0]?.eventName).toBe("[Amplitude] Page Viewed");
+  });
 });

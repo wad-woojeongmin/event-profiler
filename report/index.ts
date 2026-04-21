@@ -12,6 +12,8 @@ export {
 } from "./report-assembler.ts";
 export { createWxtSpecsCacheReader } from "./adapters/wxt-specs-cache-reader.ts";
 export { createWxtReportWriter } from "./adapters/wxt-report-writer.ts";
+export { createWxtReportReader } from "./adapters/wxt-report-reader.ts";
 export type { SpecsCacheReader } from "./ports/specs-cache-reader.ts";
 export type { ReportWriter } from "./ports/report-writer.ts";
+export type { ReportReader } from "./ports/report-reader.ts";
 export type { SessionSource } from "./ports/session-source.ts";
