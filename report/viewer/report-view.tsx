@@ -8,6 +8,7 @@
 import { useMemo, useState } from "react";
 
 import type { ReportData } from "@/types/storage.ts";
+import type { ValidationResult } from "@/types/validation.ts";
 
 import { EventDetail } from "./event-detail.tsx";
 import { ExceptionList } from "./exception-list.tsx";
@@ -30,6 +31,16 @@ export function ReportView({ data }: Props) {
     [report.results],
   );
 
+  // 타임라인 마커/썸네일 점 색을 이름 단위로 결정. 이름이 같으면 스펙도 같고 상태도
+  // 같다는 전제(one spec per amplitudeEventName)에 기댄다.
+  const statusByEventName = useMemo(() => {
+    const map = new Map<string, ValidationResult["status"]>();
+    for (const r of report.results) {
+      map.set(r.spec.amplitudeEventName, r.status);
+    }
+    return map;
+  }, [report.results]);
+
   // 초기 선택 규칙: 이슈가 가장 많은 결과 → 없으면 captured가 있는 첫 행 → 없으면 0.
   // 디자인 원본은 `idx=4`를 하드코딩했지만 실데이터는 길이가 다르므로 의미 기반 선택.
   const initialIdx = useMemo(() => pickInitialIdx(report.results), [report.results]);
@@ -43,7 +54,12 @@ export function ReportView({ data }: Props) {
         <Header report={report} captured={capturedAll} />
         <div className={styles.body}>
           <StatsDashboard stats={report.stats} />
-          <TimelineChart session={report.session} captured={capturedAll} />
+          <TimelineChart
+            session={report.session}
+            captured={capturedAll}
+            screenshotDataUrls={screenshotDataUrls}
+            statusByEventName={statusByEventName}
+          />
           {selected && (
             <div className={styles.twoColumn}>
               <ResultsTable
