@@ -25,8 +25,10 @@ export const backButton = style({
   flexShrink: 0,
   padding: 0,
   selectors: {
+    // 헤더 wrapper가 이미 `surface`(pure white)라서 hover 배경도 surface면
+    // 아무 변화가 없다. `hover` 토큰으로 대비를 만들어 준다.
     "&:hover": {
-      background: vars.color.surface,
+      background: vars.color.hover,
       color: vars.color.text,
     },
   },

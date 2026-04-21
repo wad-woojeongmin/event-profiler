@@ -138,9 +138,10 @@ const counterValueBase = style({
   lineHeight: 1.1,
 });
 
+// 총 수집 셀만 20px로 살짝 키워 "핵심 지표"라는 위계를 준다(나머지 셀은 18px).
 export const counterValue = style([
   counterValueBase,
-  { color: vars.color.text },
+  { color: vars.color.text, fontSize: "20px" },
 ]);
 
 export const counterValueZero = style([
@@ -224,7 +225,7 @@ export const specList = style({
 export const specRow = style({
   display: "grid",
   gridTemplateColumns: "auto 1fr auto",
-  alignItems: "flex-start",
+  alignItems: "center",
   gap: vars.space.sm,
   padding: `${vars.space.sm} ${vars.space.md}`,
   borderBottom: `1px solid ${vars.color.divider}`,
@@ -371,7 +372,7 @@ const streamRowBase = style({
   display: "grid",
   gridTemplateColumns: "auto 1fr",
   alignItems: "flex-start",
-  gap: vars.space.sm,
+  gap: "10px",
   padding: `6px ${vars.space.md}`,
   borderBottom: `1px solid ${vars.color.divider}`,
   transition: "background 0.6s",

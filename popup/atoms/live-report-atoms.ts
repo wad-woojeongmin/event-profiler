@@ -120,8 +120,15 @@ function mapResultStatus(
       return "fail";
     case "suspect_duplicate":
       return "warn";
-    default:
-      // not_collected는 captured가 없어 스트림에 도달하지 않는다.
-      return "pass";
+    case "not_collected":
+      // captured가 없어 스트림에 도달하지 않는 값. 타입 체커가 exhaustive임을
+      // 확인하도록 명시 분기로 남긴다.
+      return "warn";
+    default: {
+      // 스키마가 확장되면 알림. pass로 흘려보내면 "성공인데 실패"가 조용히 숨는다.
+      const _exhaustive: never = status;
+      console.warn("unknown ValidationResult.status", _exhaustive);
+      return "exception";
+    }
   }
 }

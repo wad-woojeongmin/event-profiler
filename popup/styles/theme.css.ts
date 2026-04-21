@@ -28,6 +28,9 @@ export const vars = createGlobalTheme(":root", {
     primaryHover: "#1d4ed8",
     primarySoft: "#eff4ff",
     primaryText: "#ffffff",
+    // primary보다 가라앉은 톤. 섹션 헤더의 보조 액션 링크("전체 추가" 등)에
+    // 쓴다. primary를 그대로 쓰면 풋터 CTA와 위계가 섞이고 헤더 안에서 튄다.
+    primaryLinkText: "oklch(42% 0.14 255)",
     danger: "#c0392b",
     success: "#27ae60",
     warning: "#d97706",
