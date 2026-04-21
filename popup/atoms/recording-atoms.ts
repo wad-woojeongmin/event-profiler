@@ -88,6 +88,17 @@ export const stopRecordingAtom = atom(null, async (get, set) => {
   set(recordingSessionAtom, await client.getSessionState());
 });
 
+/**
+ * 세션을 초기화해 idle phase로 돌아간다. 녹화 종료 후 다른 이벤트 세트로
+ * 새 세션을 열고 싶을 때 사용. 이전 선택은 유지해 사용자가 부분적으로만
+ * 조정하면 되도록 한다(원하면 SpecSelector에서 "전체 해제" 사용).
+ */
+export const resetSessionAtom = atom(null, async (get, set) => {
+  const client = requireBackgroundClient(get(backgroundClientAtom));
+  await client.clearSession();
+  set(recordingSessionAtom, await client.getSessionState());
+});
+
 export const generateReportAtom = atom(null, async (get) => {
   const client = requireBackgroundClient(get(backgroundClientAtom));
   await client.generateReport();

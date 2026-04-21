@@ -33,6 +33,7 @@ export interface FakeBackgroundClient extends BackgroundClient {
   readonly calls: {
     startRecording: Array<{ targetEventNames: string[]; tabId: number }>;
     stopRecording: number;
+    clearSession: number;
     generateReport: number;
     authenticate: number;
     signOut: number;
@@ -60,6 +61,7 @@ export function createFakeBackgroundClient(): FakeBackgroundClient {
   const calls = {
     startRecording: [] as Array<{ targetEventNames: string[]; tabId: number }>,
     stopRecording: 0,
+    clearSession: 0,
     generateReport: 0,
     authenticate: 0,
     signOut: 0,
@@ -104,6 +106,9 @@ export function createFakeBackgroundClient(): FakeBackgroundClient {
     },
     async stopRecording() {
       calls.stopRecording += 1;
+    },
+    async clearSession() {
+      calls.clearSession += 1;
     },
     async getSessionState() {
       return sessionState;

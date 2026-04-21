@@ -39,6 +39,12 @@ export interface BackgroundClient {
   /** 현재 세션을 종료한다. 이미 종료된 세션이면 no-op. */
   stopRecording(): Promise<void>;
 
+  /**
+   * 세션·이벤트·스크린샷을 모두 지워 idle 상태로 되돌린다.
+   * 녹화 종료 후 다른 이벤트를 선택해 새 세션을 열기 위해 선택 UI로 복귀할 때 사용.
+   */
+  clearSession(): Promise<void>;
+
   /** 팝업 재오픈 시 UI 복구용 세션 스냅샷. 세션이 없으면 빈 스냅샷. */
   getSessionState(): Promise<RecordingSessionState>;
 
