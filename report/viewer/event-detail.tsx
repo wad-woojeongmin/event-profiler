@@ -1,11 +1,16 @@
 // 선택된 검증 결과의 상세. 스펙/수집 2열 비교 + 이슈 배너 + 수집 로그.
 //
-// 스펙 파라미터와 실제 수집된 파라미터 키를 비교해 missing/extra를 표시한다.
-// 정교한 타입 비교는 M7의 규칙에 맡기고, 여기서는 "키가 스펙에 있는가/없는가"만
-// 시각적으로 강조한다(디자인 원본과 동일한 UX).
+// "수집됨" 열의 EXTRA 표시는 M7의 `param_unreferenced` 규칙과 같은 기준을 써야 한다.
+// 스펙 시트는 `object`/`extension` 셀에 적힌 키만 `EventSpec.params`로 들어가고,
+// taxonomy 컬럼(pageName·sectionName 등)과 웹앱이 기본으로 실어 보내는 base property
+// (deviceId·buildVersion 등)는 params에 포함되지 않는다. 그래서 `spec.params`만 보고
+// 비교하면 정상적으로 실린 파라미터까지 전부 EXTRA로 표시된다.
 
 import type { CapturedEvent } from "@/types/event.ts";
 import type { ValidationResult } from "@/types/validation.ts";
+
+import { BASE_EVENT_PARAM_KEYS } from "@/shared/base-event-param-keys.ts";
+import { TAXONOMY_PARAM_KEYS } from "@/shared/taxonomy-param-keys.ts";
 
 import { formatClock } from "./format.ts";
 import * as styles from "./event-detail.css.ts";
@@ -18,7 +23,14 @@ interface Props {
 export function EventDetail({ result }: Props) {
   const { spec, captured, issues } = result;
   const actualParamKeys = unionActualKeys(captured);
-  const specParams = new Set(spec.params);
+  // EXTRA 기준: M7 paramUnreferencedRule과 동일하게 spec.params + taxonomy + base 키를 합친다.
+  // MISSING 기준은 그대로 spec.params만 본다. taxonomy/base 키는 스펙에 안 적혀 있어도
+  // 웹앱이 항상 실어 보내므로 MISSING 대상이 아니다.
+  const knownToSpec = new Set<string>([
+    ...spec.params,
+    ...TAXONOMY_PARAM_KEYS,
+    ...BASE_EVENT_PARAM_KEYS,
+  ]);
 
   return (
     <section className={styles.wrap} aria-label="이벤트 상세">
@@ -81,7 +93,7 @@ export function EventDetail({ result }: Props) {
                   key={p}
                   k={p}
                   v={sample}
-                  extra={!specParams.has(p)}
+                  extra={!knownToSpec.has(p)}
                 />
               );
             })}
