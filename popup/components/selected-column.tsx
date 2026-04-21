@@ -91,17 +91,6 @@ export function SelectedColumn() {
                   {spec.pageName} · {spec.amplitudeEventName}
                 </span>
               </div>
-              <button
-                type="button"
-                className={styles.removeButton}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggle(spec.amplitudeEventName);
-                }}
-                aria-label={`${spec.amplitudeEventName} 선택 해제`}
-              >
-                ×
-              </button>
             </li>
           ))}
         </ul>

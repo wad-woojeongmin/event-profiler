@@ -188,23 +188,6 @@ export const itemSubtitle = style({
   textOverflow: "ellipsis",
 });
 
-export const removeButton = style({
-  border: "none",
-  background: "transparent",
-  color: vars.color.textSubtle,
-  fontSize: vars.font.size.md,
-  cursor: "pointer",
-  padding: "0 4px",
-  borderRadius: vars.radius.sm,
-  lineHeight: 1,
-  selectors: {
-    "&:hover": {
-      background: vars.color.surface,
-      color: vars.color.failText,
-    },
-  },
-});
-
 export const emptyState = style({
   padding: vars.space.lg,
   fontSize: vars.font.size.xs,
