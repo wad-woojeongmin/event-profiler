@@ -6,7 +6,7 @@ export const wrapper = style({
   display: "flex",
   alignItems: "center",
   gap: vars.space.sm,
-  padding: `${vars.space.sm} ${vars.space.md}`,
+  padding: "10px 12px",
   background: vars.color.bg,
   borderBottom: `1px solid ${vars.color.border}`,
   flexShrink: 0,

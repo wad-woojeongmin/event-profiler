@@ -2,15 +2,17 @@ import { style } from "@vanilla-extract/css";
 
 import { vars } from "../styles/theme.css.ts";
 
+// 2칼럼 선택 영역. SidebarFrame 스타일처럼 에지까지 꽉 차며 내부 분리는 중앙
+// borderRight로 처리한다. 외부 패딩이 없다.
 export const wrapper = style({
   display: "flex",
   flexDirection: "column",
   padding: 0,
   flex: 1,
   minHeight: 0,
+  background: vars.color.bg,
 });
 
-// 좌/우 칼럼 사이에 세로 구분선 하나가 흐르도록 gap 대신 border로 분리한다.
 export const columns = style({
   display: "grid",
   gridTemplateColumns: "1fr 1fr",
@@ -30,12 +32,13 @@ export const column = style({
   },
 });
 
+// 각 칼럼 헤더: 연회색 배경에 대문자 제목 + 카운트 + 우측 액션 버튼.
 export const columnHeader = style({
   display: "flex",
   alignItems: "center",
   gap: "6px",
-  padding: `${vars.space.xs} ${vars.space.sm}`,
-  background: vars.color.surface,
+  padding: "8px 10px",
+  background: vars.color.surfaceAlt,
   borderBottom: `1px solid ${vars.color.divider}`,
   flexShrink: 0,
 });
@@ -83,13 +86,19 @@ export const columnActionPrimary = style([
   },
 ]);
 
-// 검색 박스: 두 칼럼 경계를 따라가되 칼럼 내부에서 자체 padding을 가진다.
+// 검색 입력: 헤더/리스트 사이의 별도 밴드. 좌우 8px 여백으로 디자인과 맞춘다.
+export const searchPad = style({
+  padding: "6px 8px",
+  borderBottom: `1px solid ${vars.color.divider}`,
+  background: vars.color.bg,
+  flexShrink: 0,
+});
+
 export const searchInput = style({
-  width: "calc(100% - 16px)",
-  margin: `6px 8px`,
-  padding: `2px ${vars.space.sm}`,
+  width: "100%",
+  padding: `0 ${vars.space.sm}`,
   border: `1px solid ${vars.color.border}`,
-  borderRadius: vars.radius.sm,
+  borderRadius: vars.radius.md,
   fontSize: "10.5px",
   background: vars.color.bg,
   color: vars.color.text,
@@ -103,7 +112,6 @@ export const searchInput = style({
   },
 });
 
-// 칼럼 본문 — 늘어나는 영역은 리스트가 전부 차지한다.
 export const list = style({
   overflowY: "auto",
   flex: 1,
@@ -117,11 +125,11 @@ export const item = style({
   display: "flex",
   alignItems: "flex-start",
   gap: vars.space.sm,
-  padding: `7px ${vars.space.sm}`,
+  padding: "7px 10px",
   cursor: "pointer",
   borderBottom: `1px solid ${vars.color.divider}`,
   selectors: {
-    "&:hover": { background: vars.color.surface },
+    "&:hover": { background: vars.color.hover },
   },
 });
 

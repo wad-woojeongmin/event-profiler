@@ -1,14 +1,10 @@
-// 녹화 중 대시보드 스타일.
+// 녹화 중 대시보드 스타일 — flat-section 구조.
 //
-// 상태 배지 색은 리포트 뷰어(`report/viewer/results-table.css.ts`)와 시각적 톤을
+// wrapper에는 padding·gap이 없고, 각 섹션은 에지까지 꽉 차며 borderBottom으로
+// 이웃 섹션과 분리된다. 섹션 헤더는 연회색 바(surfaceAlt) 위의 대문자 캡션이다.
+//
+// 색 토큰은 리포트 뷰어(`report/viewer/results-table.css.ts`)와 시각적 톤을
 // 맞췄다. 색 값이 바뀌면 양쪽을 함께 수정할 것.
-//
-// REC 헤더 펄스 애니메이션은 녹화 진행 중임을 시각적으로 전달한다. 녹화 종료
-// 상태에서는 펄스를 멈추고 색도 회색으로 가라앉힌다.
-//
-// 실시간 스트림은 첫 행에만 slide-in + blue-soft 배경을 얇게 걸어 새 이벤트가
-// 도착했음을 드러낸다. 매 폴링마다 fresh 플래그가 바뀌므로 CSS transition이
-// 자연스럽게 감쇠된다.
 
 import { keyframes, style, styleVariants } from "@vanilla-extract/css";
 
@@ -24,32 +20,27 @@ const slideIn = keyframes({
   to: { opacity: 1, transform: "none" },
 });
 
+// wrapper에는 패딩을 두지 않는다 — 디자인이 사이드바 에지까지 섹션을 붙여 둔다.
+// 안쪽 specSection/streamSection이 각각 자체 스크롤을 가져 footer가 가려지지
+// 않도록 한다.
 export const wrapper = style({
   display: "flex",
   flexDirection: "column",
-  gap: vars.space.md,
-  padding: vars.space.md,
   flex: 1,
   minHeight: 0,
   overflow: "hidden",
+  background: vars.color.bg,
 });
 
-const staticSection = style({
+export const recHeader = style({
+  display: "flex",
+  alignItems: "center",
+  gap: vars.space.sm,
+  padding: "10px 12px",
+  background: vars.color.bg,
+  borderBottom: `1px solid ${vars.color.border}`,
   flexShrink: 0,
 });
-
-export const recHeader = style([
-  staticSection,
-  {
-    display: "flex",
-    alignItems: "center",
-    gap: vars.space.sm,
-    padding: `${vars.space.sm} ${vars.space.md}`,
-    background: vars.color.bg,
-    border: `1px solid ${vars.color.border}`,
-    borderRadius: vars.radius.md,
-  },
-]);
 
 const liveDotBase = style({
   width: "8px",
@@ -104,23 +95,20 @@ export const recStartClock = style({
   color: vars.color.text,
 });
 
-export const counterStrip = style([
-  staticSection,
-  {
-    display: "grid",
-    gridTemplateColumns: "1.2fr repeat(4, 1fr)",
-    background: vars.color.bg,
-    border: `1px solid ${vars.color.border}`,
-    borderRadius: vars.radius.md,
-    overflow: "hidden",
-  },
-]);
+// 5-컬럼 그리드가 사이드바 에지에서 에지까지. 셀 사이엔 얇은 divider.
+export const counterStrip = style({
+  display: "grid",
+  gridTemplateColumns: "repeat(5, 1fr)",
+  background: vars.color.bg,
+  borderBottom: `1px solid ${vars.color.border}`,
+  flexShrink: 0,
+});
 
 const counterCellBase = style({
   display: "flex",
   flexDirection: "column",
   gap: "2px",
-  padding: `${vars.space.sm} ${vars.space.sm}`,
+  padding: "10px 10px",
   borderRight: `1px solid ${vars.color.divider}`,
   selectors: {
     "&:last-child": { borderRight: "none" },
@@ -131,7 +119,7 @@ export const counterCell = style([counterCellBase]);
 
 export const counterCellTotal = style([
   counterCellBase,
-  { background: vars.color.surface },
+  { background: vars.color.surfaceAlt },
 ]);
 
 export const counterLabel = style({
@@ -164,7 +152,20 @@ export const counterValueVariants = styleVariants({
   pass: [counterValueBase, { color: vars.color.passText }],
   fail: [counterValueBase, { color: vars.color.failText }],
   warn: [counterValueBase, { color: vars.color.warnText }],
-  missing: [counterValueBase, { color: vars.color.missingText }],
+  // 미수집(=not_collected)이 0보다 크면 경고로 간주해 warn 톤으로 드러낸다.
+  // "미수집" 색을 회색으로 두면 0과 구분이 되지 않아 사용자가 중요도를 놓친다.
+  missing: [counterValueBase, { color: vars.color.warnText }],
+});
+
+// 섹션 헤더: 연회색 바에 대문자 제목 + 카운트.
+export const sectionHeader = style({
+  display: "flex",
+  alignItems: "center",
+  gap: vars.space.sm,
+  padding: "10px 14px",
+  background: vars.color.surfaceAlt,
+  borderBottom: `1px solid ${vars.color.divider}`,
+  flexShrink: 0,
 });
 
 export const sectionTitle = style({
@@ -185,15 +186,6 @@ export const sectionSpacer = style({
   flex: 1,
 });
 
-export const sectionHeader = style([
-  staticSection,
-  {
-    display: "flex",
-    alignItems: "center",
-    gap: vars.space.sm,
-  },
-]);
-
 export const liveBadge = style({
   display: "inline-flex",
   alignItems: "center",
@@ -211,18 +203,22 @@ export const liveBadgeDot = style({
   animation: `${pulse} 1.2s ease-in-out infinite`,
 });
 
-// 선택한 이벤트 정의 상태 리스트 — 대시보드에서 유일하게 flex로 늘어나는 섹션.
-// specList와 streamList가 각각 flex 영역을 나눠 가진다. 스펙이 적고 스트림이
-// 많으면 스트림이 더 많은 공간을 차지한다.
+// 선택 이벤트 상태 섹션: 내부 리스트가 자체 max-height로 스크롤을 가져 녹화
+// 중 스펙이 많아도 스트림 섹션을 밀어내지 않는다. 섹션 자체는 콘텐츠 높이에
+// 맞춰 자연스럽게 늘어난다(1개만 있을 때 빈 공백 없이 붙는다).
+export const specSection = style({
+  display: "flex",
+  flexDirection: "column",
+  borderBottom: `1px solid ${vars.color.border}`,
+  background: vars.color.bg,
+  flexShrink: 0,
+});
+
 export const specList = style({
   display: "flex",
   flexDirection: "column",
-  border: `1px solid ${vars.color.border}`,
-  borderRadius: vars.radius.md,
-  flex: "1 1 0",
-  minHeight: 0,
   overflowY: "auto",
-  background: vars.color.bg,
+  maxHeight: "220px",
 });
 
 export const specRow = style({
@@ -353,16 +349,22 @@ export const specCountUnit = style({
   color: vars.color.textSubtle,
 });
 
-// 실시간 스트림
+// 실시간 스트림 섹션: 남은 공간 전부 차지. 리스트 내부에서 스크롤.
+export const streamSection = style({
+  display: "flex",
+  flexDirection: "column",
+  flex: 1,
+  minHeight: 0,
+  background: vars.color.bg,
+  overflow: "hidden",
+});
+
 export const streamList = style({
   display: "flex",
   flexDirection: "column",
-  border: `1px solid ${vars.color.border}`,
-  borderRadius: vars.radius.md,
-  flex: "1 1 0",
-  minHeight: 0,
   overflowY: "auto",
-  background: vars.color.bg,
+  flex: 1,
+  minHeight: 0,
 });
 
 const streamRowBase = style({
@@ -370,7 +372,7 @@ const streamRowBase = style({
   gridTemplateColumns: "auto 1fr",
   alignItems: "flex-start",
   gap: vars.space.sm,
-  padding: `${vars.space.xs} ${vars.space.md}`,
+  padding: `6px ${vars.space.md}`,
   borderBottom: `1px solid ${vars.color.divider}`,
   transition: "background 0.6s",
   selectors: {
@@ -464,15 +466,11 @@ export const streamParams = style({
   textOverflow: "ellipsis",
 });
 
-export const emptyState = style([
-  staticSection,
-  {
-    padding: vars.space.lg,
-    fontSize: vars.font.size.sm,
-    color: vars.color.textMuted,
-    textAlign: "center",
-    background: vars.color.bg,
-    border: `1px solid ${vars.color.border}`,
-    borderRadius: vars.radius.md,
-  },
-]);
+// 섹션 내부에 텍스트만 들어가는 empty/placeholder 영역.
+export const placeholder = style({
+  padding: vars.space.lg,
+  fontSize: vars.font.size.sm,
+  color: vars.color.textMuted,
+  textAlign: "center",
+  background: vars.color.bg,
+});

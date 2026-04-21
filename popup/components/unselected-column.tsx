@@ -53,14 +53,16 @@ export function UnselectedColumn() {
           전체 추가
         </button>
       </div>
-      <input
-        className={styles.searchInput}
-        type="search"
-        placeholder="이벤트명 · 페이지"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        disabled={allSpecs.length === 0}
-      />
+      <div className={styles.searchPad}>
+        <input
+          className={styles.searchInput}
+          type="search"
+          placeholder="이벤트명 · 페이지"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          disabled={allSpecs.length === 0}
+        />
+      </div>
       {filtered.length === 0 ? (
         <div className={styles.list}>
           <div className={styles.emptyState}>

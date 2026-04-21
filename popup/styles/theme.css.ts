@@ -29,18 +29,21 @@ export const vars = createGlobalTheme(":root", {
     success: "#27ae60",
     warning: "#d97706",
     // 상태 색상. 배경은 soft, 텍스트/강조는 text, 점/액센트는 solid를 쓴다.
-    passSolid: "#16a34a",
-    passSoft: "#ecfdf5",
-    passText: "#047857",
-    failSolid: "#dc2626",
-    failSoft: "#fef2f2",
-    failText: "#b91c1c",
-    warnSolid: "#f59e0b",
-    warnSoft: "#fff7ed",
-    warnText: "#c2410c",
-    missingSolid: "#9ca3af",
-    missingSoft: "#f1f3f5",
-    missingText: "#6b7280",
+    // Chrome 111+에서 렌더링하는 확장 프로그램이므로 oklch()를 직접 사용해
+    // 디자인 툴이 뽑은 색을 그대로 재현한다(hex 변환 시 발생하는 warmth/채도
+    // 손실을 피하려는 의도).
+    passSolid: "oklch(62% 0.16 150)",
+    passSoft: "oklch(95% 0.05 150)",
+    passText: "oklch(38% 0.14 150)",
+    failSolid: "oklch(55% 0.22 25)",
+    failSoft: "oklch(95% 0.05 25)",
+    failText: "oklch(42% 0.19 25)",
+    warnSolid: "oklch(76% 0.17 80)",
+    warnSoft: "oklch(96% 0.07 80)",
+    warnText: "oklch(50% 0.14 70)",
+    missingSolid: "oklch(60% 0.01 240)",
+    missingSoft: "oklch(95% 0.005 240)",
+    missingText: "oklch(50% 0.012 240)",
   },
   space: {
     xs: "4px",

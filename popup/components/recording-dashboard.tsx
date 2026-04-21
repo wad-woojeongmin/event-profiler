@@ -1,14 +1,20 @@
 // 녹화 중/녹화 종료 대시보드.
 //
-// 상단: REC 헤더(펄싱 점 + 경과 시간 + 시작 시각)
-// 중단: 카운터 스트립(총 수집 / PASS / FAIL / 중복 / 미수집)
-// 하단: 선택 이벤트 상태 리스트 + 실시간 스트림(최신순)
+// 섹션은 wrapper 패딩 없이 세로로 이어 붙이고, 섹션 간 경계는 borderBottom
+// 하나로 처리한다(디자인 레퍼런스가 사이드바 에지까지 딱 붙는 flat-section
+// 구조). 각 섹션 헤더는 연회색 바 형태로 제목 + 카운트를 표시한다.
 //
-// 배경 SW가 최종 리포트와 같은 소스로 계산한 `ValidationReport`를 라이브로 받아
-// 상태 카드·선택 스펙별 이슈 요약·실시간 스트림을 보여준다. 리포트 뷰어
+// 섹션 구성:
+//  1. REC 헤더(펄싱 점 + 경과 시간 + 시작 시각)
+//  2. 카운터 스트립(총 수집 / PASS / FAIL / 중복 / 미수집)
+//  3. "선택 이벤트 상태" 리스트 — max-height로 제한되어 스크롤
+//  4. "실시간 스트림" 리스트 — 남은 공간을 flex:1로 차지
+//
+// 배경 SW의 `ValidationReport`를 폴링해 상태·스트림을 도출한다. 리포트 뷰어
 // (`report/viewer/`)와 판정·색 토큰을 맞춘다.
 
 import { useAtomValue } from "jotai";
+import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 
 import type { ValidationIssue, ValidationResult } from "@/types/validation.ts";
@@ -46,9 +52,6 @@ export function RecordingDashboard() {
   const resultsByName = useAtomValue(liveResultsByNameAtom);
   const stream = useAtomValue(liveStreamAtom);
 
-  // 선택된 스펙(녹화 시작 시점 기준)을 상태 우선순위로 정렬해 고정 렌더.
-  // report가 아직 없으면 "not_collected"로 가정해 자리를 잡고, 이후 스냅샷이
-  // 도착하면 상태·이슈가 자연스럽게 갱신된다.
   const rows = useMemo(
     () => buildSpecRows(specs, selected, resultsByName),
     [specs, selected, resultsByName],
@@ -57,7 +60,7 @@ export function RecordingDashboard() {
   if (!session.session) {
     return (
       <section className={styles.wrapper}>
-        <div className={styles.emptyState}>세션을 불러오는 중…</div>
+        <div className={styles.placeholder}>세션을 불러오는 중…</div>
       </section>
     );
   }
@@ -105,48 +108,71 @@ export function RecordingDashboard() {
         <CounterCell label="미수집" value={stats.notCollected} kind="missing" />
       </div>
 
-      <div className={styles.sectionHeader}>
-        <span className={styles.sectionTitle}>선택 이벤트 상태</span>
-        <span className={styles.sectionCount}>{rows.length}</span>
-      </div>
-      {rows.length === 0 ? (
-        <div className={styles.emptyState}>선택된 이벤트가 없습니다.</div>
-      ) : (
-        <ul className={styles.specList}>
-          {rows.map((row) => (
-            <SpecRow key={row.amplitudeEventName} row={row} />
-          ))}
-        </ul>
-      )}
-
-      <div className={styles.sectionHeader}>
-        <span className={styles.sectionTitle}>실시간 스트림</span>
-        <div className={styles.sectionSpacer} />
-        {isRecording && (
-          <span className={styles.liveBadge}>
-            <span className={styles.liveBadgeDot} aria-hidden="true" />
-            live
-          </span>
+      <section className={styles.specSection}>
+        <SectionHeader title="선택 이벤트 상태" count={rows.length} />
+        {rows.length === 0 ? (
+          <div className={styles.placeholder}>선택된 이벤트가 없습니다.</div>
+        ) : (
+          <ul className={styles.specList}>
+            {rows.map((row) => (
+              <SpecRow key={row.amplitudeEventName} row={row} />
+            ))}
+          </ul>
         )}
-      </div>
-      {stream.length === 0 ? (
-        <div className={styles.emptyState}>
-          {isRecording
-            ? "수집된 이벤트가 아직 없습니다."
-            : "녹화 중 수집된 이벤트가 없습니다."}
-        </div>
-      ) : (
-        <ul className={styles.streamList}>
-          {stream.map((entry, idx) => (
-            <StreamRow
-              key={entry.id}
-              entry={entry}
-              fresh={idx === 0 && isRecording}
-            />
-          ))}
-        </ul>
-      )}
+      </section>
+
+      <section className={styles.streamSection}>
+        <SectionHeader
+          title="실시간 스트림"
+          right={
+            isRecording ? (
+              <span className={styles.liveBadge}>
+                <span className={styles.liveBadgeDot} aria-hidden="true" />
+                live
+              </span>
+            ) : undefined
+          }
+        />
+        {stream.length === 0 ? (
+          <div className={styles.placeholder}>
+            {isRecording
+              ? "수집된 이벤트가 아직 없습니다."
+              : "녹화 중 수집된 이벤트가 없습니다."}
+          </div>
+        ) : (
+          <ul className={styles.streamList}>
+            {stream.map((entry, idx) => (
+              <StreamRow
+                key={entry.id}
+                entry={entry}
+                fresh={idx === 0 && isRecording}
+              />
+            ))}
+          </ul>
+        )}
+      </section>
     </section>
+  );
+}
+
+function SectionHeader({
+  title,
+  count,
+  right,
+}: {
+  title: string;
+  count?: number;
+  right?: ReactNode;
+}) {
+  return (
+    <header className={styles.sectionHeader}>
+      <span className={styles.sectionTitle}>{title}</span>
+      {count !== undefined && (
+        <span className={styles.sectionCount}>{count}</span>
+      )}
+      <div className={styles.sectionSpacer} />
+      {right}
+    </header>
   );
 }
 
@@ -190,9 +216,6 @@ function buildSpecRows(
   selected: ReadonlySet<string>,
   resultsByName: ReadonlyMap<string, ValidationResult>,
 ): SpecRowModel[] {
-  // 선택된 이름 집합은 시작 시점 고정(녹화 중에는 선택이 바뀌지 않음)이므로
-  // specs 배열을 순회하며 선택된 것만 추린다. 스펙 캐시에 없는 이름(시트 변경
-  // 등)은 드물어 Phase 1에서는 드랍한다.
   const rows: SpecRowModel[] = [];
   for (const spec of specs) {
     if (!selected.has(spec.amplitudeEventName)) continue;
