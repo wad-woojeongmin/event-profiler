@@ -167,15 +167,17 @@ export function RecordingDashboard() {
             <span>카테고리</span>
             <span>최초 수집</span>
           </div>
-          {filteredUnexpected.map((group) => (
-            <div key={group.name} className={styles.unexpectedRow}>
-              <span className={styles.unexpectedCellMono}>{group.name}</span>
-              <span className={styles.unexpectedCell}>{group.category}</span>
-              <span className={styles.unexpectedCell}>
-                {formatClock(group.firstSeenAt)}
-              </span>
-            </div>
-          ))}
+          <div className={styles.unexpectedBody}>
+            {filteredUnexpected.map((group) => (
+              <div key={group.name} className={styles.unexpectedRow}>
+                <span className={styles.unexpectedCellMono}>{group.name}</span>
+                <span className={styles.unexpectedCell}>{group.category}</span>
+                <span className={styles.unexpectedCell}>
+                  {formatClock(group.firstSeenAt)}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </section>

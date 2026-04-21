@@ -7,6 +7,9 @@ import { style, styleVariants } from "@vanilla-extract/css";
 
 import { vars } from "../styles/theme.css.ts";
 
+// wrapper 자체는 스크롤하지 않는다 — 안쪽 specList/unexpectedBody가 각각
+// overflow를 갖고 필요한 만큼만 잡아먹는다. wrapper가 overflow:auto면 긴 목록이
+// 전체 대시보드를 밀어 footer가 뷰포트 밖으로 사라지는 원래 이슈가 돌아온다.
 export const wrapper = style({
   display: "flex",
   flexDirection: "column",
@@ -14,7 +17,14 @@ export const wrapper = style({
   padding: vars.space.lg,
   flex: 1,
   minHeight: 0,
-  overflow: "auto",
+  overflow: "hidden",
+});
+
+// 대시보드 안의 고정 높이 섹션(헤더·메타·카드·검색·예외 테이블 등)이 공통으로
+// 참조. flex 컨텍스트에서 축소되지 않도록 flexShrink:0을 준다. 늘어나는 유일한
+// 섹션은 specList.
+const staticSection = style({
+  flexShrink: 0,
 });
 
 export const sectionTitle = style({
@@ -25,19 +35,25 @@ export const sectionTitle = style({
   letterSpacing: "0.04em",
 });
 
-export const sectionHeader = style({
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: vars.space.sm,
-});
+export const sectionHeader = style([
+  staticSection,
+  {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: vars.space.sm,
+  },
+]);
 
-export const metaGrid = style({
-  display: "grid",
-  gridTemplateColumns: "repeat(2, 1fr)",
-  gap: vars.space.sm,
-  fontSize: vars.font.size.sm,
-});
+export const metaGrid = style([
+  staticSection,
+  {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, 1fr)",
+    gap: vars.space.sm,
+    fontSize: vars.font.size.sm,
+  },
+]);
 
 export const metaCell = style({
   display: "flex",
@@ -55,16 +71,19 @@ export const metaValue = style({
   color: vars.color.text,
 });
 
-export const statsGrid = style({
-  display: "grid",
-  gridTemplateColumns: "repeat(2, 1fr)",
-  gap: vars.space.sm,
-  "@media": {
-    "(min-width: 480px)": {
-      gridTemplateColumns: "repeat(4, 1fr)",
+export const statsGrid = style([
+  staticSection,
+  {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, 1fr)",
+    gap: vars.space.sm,
+    "@media": {
+      "(min-width: 480px)": {
+        gridTemplateColumns: "repeat(4, 1fr)",
+      },
     },
   },
-});
+]);
 
 const statCardBase = style({
   display: "flex",
@@ -100,13 +119,18 @@ export const statCardValue = style({
   color: vars.color.text,
 });
 
+// 선택한 이벤트 정의 상태 리스트 — 대시보드에서 유일하게 flex로 늘어나는 섹션.
+// 남는 세로 공간을 채우되, 최대로 늘어났을 때만 내부 스크롤이 생긴다. 스펙이
+// 적어서 자연 높이가 더 작으면 그만큼만 차지하고 아래 예외 이벤트 섹션이 붙는다.
 export const specList = style({
   display: "flex",
   flexDirection: "column",
   gap: vars.space.xs,
   border: `1px solid ${vars.color.border}`,
   borderRadius: vars.radius.md,
-  overflow: "hidden",
+  flex: "1 1 auto",
+  minHeight: 0,
+  overflowY: "auto",
 });
 
 export const specRow = style({
@@ -206,13 +230,25 @@ export const specCount = style({
   whiteSpace: "nowrap",
 });
 
-export const unexpectedTable = style({
+export const unexpectedTable = style([
+  staticSection,
+  {
+    display: "flex",
+    flexDirection: "column",
+    gap: 0,
+    border: `1px solid ${vars.color.border}`,
+    borderRadius: vars.radius.md,
+    overflow: "hidden",
+  },
+]);
+
+// 행이 많아져도 헤더는 고정, 본문만 스크롤. gap을 0으로 두고 borderBottom만으로
+// 구분해 position:sticky 행이 자연스럽게 맞물린다.
+export const unexpectedBody = style({
   display: "flex",
   flexDirection: "column",
-  gap: vars.space.xs,
-  border: `1px solid ${vars.color.border}`,
-  borderRadius: vars.radius.md,
-  overflow: "hidden",
+  maxHeight: "220px",
+  overflowY: "auto",
 });
 
 export const unexpectedHeader = style({
@@ -258,18 +294,21 @@ export const emptyState = style({
   textAlign: "center",
 });
 
-export const searchInput = style({
-  width: "100%",
-  padding: `${vars.space.xs} ${vars.space.sm}`,
-  border: `1px solid ${vars.color.border}`,
-  borderRadius: vars.radius.sm,
-  fontSize: vars.font.size.sm,
-  background: vars.color.bg,
-  color: vars.color.text,
-  selectors: {
-    "&:focus": {
-      outline: "none",
-      borderColor: vars.color.primary,
+export const searchInput = style([
+  staticSection,
+  {
+    width: "100%",
+    padding: `${vars.space.xs} ${vars.space.sm}`,
+    border: `1px solid ${vars.color.border}`,
+    borderRadius: vars.radius.sm,
+    fontSize: vars.font.size.sm,
+    background: vars.color.bg,
+    color: vars.color.text,
+    selectors: {
+      "&:focus": {
+        outline: "none",
+        borderColor: vars.color.primary,
+      },
     },
   },
-});
+]);
