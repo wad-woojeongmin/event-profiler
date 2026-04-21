@@ -362,10 +362,10 @@ describe("Validator 시나리오 — validate() 공개 API", () => {
     });
   });
 
-  describe("Taxonomy 키 암묵적 선언 정책 (현재 동작 고정)", () => {
-    it("pageName/sectionName/actionName/eventType은 매칭에 쓰이지만 spec.params에 없으면 R6(info)로 잡힌다", () => {
-      // 현재 구현 정책을 테스트로 고정한다. 이 동작이 설계상 의도인지는
-      // 보고서에 정책 질의로 남긴다 — 매칭에 쓰인 키를 R6에서 자동으로 제외해야 하는지 여부.
+  describe("Taxonomy 키 암묵적 선언 정책", () => {
+    it("시트 컬럼 레벨 키(pageName/sectionName/actionName/eventType/logType, 동의어 objectContainer/objectType)는 spec.params에 없어도 R6로 잡히지 않는다", () => {
+      // 이 키들은 시트 컬럼으로 선언되어 EventSpec.params에 담기지 않지만
+      // 모든 이벤트에 기본으로 실려온다. R6에서 거짓 양성이 되지 않도록 암묵 선언으로 취급.
       const spec = makeSpec({
         amplitudeEventName: "shopDetail_view",
         params: [],
@@ -377,23 +377,39 @@ describe("Validator 시나리오 — validate() 공개 API", () => {
           sectionName: "",
           actionName: "",
           eventType: "view",
+          logType: "screen",
+          objectContainer: "",
+          objectType: "",
         },
       });
       const report = runValidate({ specs: [spec], events: [event] });
       const r = report.results[0];
-      // info만 있으므로 상태는 pass
       expect(r?.status).toBe("pass");
+      const unreferenced = r?.issues.filter(
+        (i) => i.type === "param_unreferenced",
+      );
+      expect(unreferenced).toEqual([]);
+    });
+
+    it("암묵 선언 목록 밖의 키는 여전히 R6로 잡힌다", () => {
+      const spec = makeSpec({
+        amplitudeEventName: "shopDetail_view",
+        params: [],
+      });
+      const event = makeEvent({
+        eventName: "view__shopDetail",
+        params: {
+          pageName: "shopDetail",
+          eventType: "view",
+          unknownKey: "v",
+        },
+      });
+      const report = runValidate({ specs: [spec], events: [event] });
+      const r = report.results[0];
       const unreferenced = r?.issues
         .filter((i) => i.type === "param_unreferenced")
-        .map((i) => i.param)
-        ?.sort();
-      // 값이 빈 문자열인 sectionName/actionName도 키로는 존재하므로 모두 포함된다.
-      expect(unreferenced).toEqual([
-        "actionName",
-        "eventType",
-        "pageName",
-        "sectionName",
-      ]);
+        .map((i) => i.param);
+      expect(unreferenced).toEqual(["unknownKey"]);
     });
   });
 
