@@ -40,4 +40,7 @@ export default defineConfig({
   vite: () => ({
     plugins: [vanillaExtractPlugin()],
   }),
+  webExt: {
+    startUrls: ["https://beta4-app.catchtable.co.kr"],
+  },
 });
