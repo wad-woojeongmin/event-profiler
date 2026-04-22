@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <title>Event Profiler</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="시트에 정의된 Amplitude 이벤트 스펙과 실제 수집된 로그를 자동으로 대조하고, 한 장의 리포트로 정리하는 Chrome 확장.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,400;1,300&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+  <script type="text/babel" src="components/tokens.jsx"></script>
+  <script type="text/babel" src="components/primitives.jsx"></script>
+  <script type="text/babel" src="components/mock-data.jsx"></script>
+  <script type="text/babel" src="components/screen2-recording.jsx"></script>
+  <script type="text/babel" src="components/report-pieces.jsx"></script>
+  <script type="text/babel" src="components/report-variations.jsx"></script>
+
+  <div id="root"></div>
+
+  <script type="text/babel" data-presets="react">
+    const HEADLINE = {
+      main: <>스펙과 로그를,<br/><em>눈으로 맞춰보지 않기.</em></>,
+      sub: "시트에 정의된 Amplitude 이벤트 스펙과 실제 수집된 로그를 자동으로 대조하고, 한 장의 리포트로 정리합니다.",
+    };
+
+    function Playground() {
+      const [recKey, setRecKey] = React.useState(0);
+      const [reportKey, setReportKey] = React.useState(0);
+
+      const recW = 400, recH = 720;
+      const repW = 1200, repH = 900;
+
+      const [reportScale, setReportScale] = React.useState(1);
+      const reportStageRef = React.useRef(null);
+      React.useEffect(() => {
+        const fit = () => {
+          if (!reportStageRef.current) return;
+          const w = reportStageRef.current.clientWidth;
+          setReportScale(Math.min(1, w / repW));
+        };
+        fit();
+        const ro = new ResizeObserver(fit);
+        if (reportStageRef.current) ro.observe(reportStageRef.current);
+        window.addEventListener('resize', fit);
+        return () => { ro.disconnect(); window.removeEventListener('resize', fit); };
+      }, []);
+
+      return (
+        <div className="pg-wrap">
+          <PlayCard
+            step="01"
+            title="이벤트 녹화"
+            lede="사이드바에서 녹화가 진행되는 동안, 스펙 이벤트의 수집 상태와 실시간 스트림이 나란히 보입니다."
+            bullets={[
+              "상단 타이머가 실시간으로 카운트업",
+              "선택된 이벤트 상태를 즉시 확인",
+              "미수집 · 중복 · 스펙 외 이벤트를 자동 분류",
+            ]}
+            onReset={() => setRecKey(k => k + 1)}
+            live
+          >
+            <div className="pg-phone">
+              <div style={{ width: recW, height: recH }}>
+                <Screen2Recording
+                  key={recKey}
+                  width={recW}
+                  density="normal"
+                  onBack={() => {}}
+                  onStop={() => {}}
+                />
+              </div>
+            </div>
+          </PlayCard>
+
+          <PlayCard
+            step="02"
+            title="리포트 생성"
+            lede="녹화가 끝나면 새 탭에서 한 장의 리포트가 열립니다. 타임라인, 스크린샷, 이슈 요약을 한 페이지에서 공유합니다."
+            bullets={[
+              "이슈별 · 시간순으로 필터링 가능",
+              "각 이벤트 시점의 스크린샷을 함께 저장",
+              "HTML 한 파일로 내보내 팀에 공유",
+            ]}
+            onReset={() => setReportKey(k => k + 1)}
+          >
+            <div className="pg-report-stage" ref={reportStageRef}>
+              <div style={{
+                width: repW,
+                transform: `scale(${reportScale})`,
+                transformOrigin: 'top left',
+                height: reportScale * repH,
+              }}>
+                <ReportPage key={reportKey} width={repW}/>
+              </div>
+            </div>
+          </PlayCard>
+        </div>
+      );
+    }
+
+    function PlayCard({ step, title, lede, bullets, onReset, live, children }) {
+      return (
+        <section className="pg-card">
+          <aside className="pg-aside">
+            <div className="pg-step">
+              {live && <span className="pg-tab-dot" data-live="true" aria-hidden="true"/>}
+              <span>Step {step}</span>
+            </div>
+            <h3 className="pg-title">{title}</h3>
+            <p className="pg-lede">{lede}</p>
+            <ul className="pg-bullets">
+              {bullets.map((b, i) => <li key={i}>{b}</li>)}
+            </ul>
+            <button className="pg-reset pg-reset--inline" onClick={onReset} aria-label="데모 초기화">↻ 초기화</button>
+          </aside>
+          <div className="pg-frame">
+            {children}
+          </div>
+        </section>
+      );
+    }
+
+    function App() {
+      return (
+        <>
+          <div className="shell">
+            <header className="topbar">
+              <div className="brand">
+                <div className="mark" aria-hidden="true">
+                  <svg width="12" height="12" viewBox="0 0 11 11" fill="none">
+                    <circle cx="3" cy="3" r="1.4" fill="currentColor"/>
+                    <circle cx="8" cy="3" r="1.4" fill="currentColor" opacity=".55"/>
+                    <circle cx="3" cy="8" r="1.4" fill="currentColor" opacity=".55"/>
+                    <circle cx="8" cy="8" r="1.4" fill="currentColor"/>
+                  </svg>
+                </div>
+                <span className="name">Event Profiler</span>
+              </div>
+              <a className="github" href="https://github.com/wad-woojeongmin/event-profiler" target="_blank" rel="noopener noreferrer">
+                GitHub ↗
+              </a>
+            </header>
+
+            <section className="hero">
+              <h1 className="serif">{HEADLINE.main}</h1>
+              <p className="sub">{HEADLINE.sub}</p>
+              <a
+                className="cta"
+                href="https://github.com/wad-woojeongmin/event-profiler/releases/tag/v0.1.0"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                익스텐션 다운로드
+                <span className="arr" aria-hidden="true">↓</span>
+              </a>
+              <div className="caption">.zip · Chrome 개발자 모드로 설치</div>
+            </section>
+          </div>
+
+          <Playground/>
+
+          <footer className="foot">
+            © 2026 Event Profiler
+          </footer>
+        </>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+  </script>
+</body>
+</html>
